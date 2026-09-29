@@ -14,6 +14,9 @@ Flask + SQLite, desplegado en Railway.
 - **📚 Reto**: de entre los que os quedáis, elegís qué leer **por turnos** (le toca a quien no eligió la última).
   Filtro por estación (arranca en la actual) y "solo los que no ha leído ninguno"; **🎲 Sorpréndenos** saca uno al azar.
   Cada lectura pasa por Próximas → Leyendo ahora → Terminadas.
+  «Otro» no repite candidatos hasta haberlos visto todos. Los usuarios de `SEARCH_USERS` pueden además marcar
+  directamente un candidato como *leyendo* o *leído* y, en Terminadas, apuntar cualquier lectura del reto ya hecha
+  (aunque no sea coincidencia); las apuntadas así no cuentan para el turno.
 - **⬇️ Excel** (solo `SEARCH_USERS`): descarga en `/exportar` con dos hojas, *Nos lo quedamos* (quién lo ha leído y
   si ya está en el reto) y *Todos* (lo que ha decidido cada uno).
 - **Datos**: al arrancar con la base vacía se carga `seed/coffee_and_chapters.xlsx` (hojas *Criba* + *Lista*),

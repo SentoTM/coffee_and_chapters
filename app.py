@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS picks (
     book_id   INTEGER PRIMARY KEY REFERENCES books(id) ON DELETE CASCADE,
     picked_by TEXT NOT NULL,
     status    TEXT NOT NULL DEFAULT 'next' CHECK (status IN ('next','reading','done')),
+    turn      INTEGER NOT NULL DEFAULT 1,  -- 0 = apuntada directamente como leída: no cuenta para el turno
     added     TEXT NOT NULL DEFAULT (datetime('now')),
     updated   TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -158,6 +159,9 @@ def init_db():
     if version < 5:
         demo_vote(db)
     sync_blurbs(db)
+    if "turn" not in {r["name"] for r in db.execute("PRAGMA table_info(picks)")}:
+        db.execute("ALTER TABLE picks ADD COLUMN turn INTEGER NOT NULL DEFAULT 1")
+        db.commit()
     db.close()
 
 
@@ -582,7 +586,7 @@ def current_season(today=None):
 
 def whose_turn(db):
     """Elegís por turnos: le toca a quien no eligió la última lectura."""
-    last = db.execute("SELECT picked_by FROM picks ORDER BY added DESC, rowid DESC LIMIT 1").fetchone()
+    last = db.execute("SELECT picked_by FROM picks WHERE turn = 1 ORDER BY added DESC, rowid DESC LIMIT 1").fetchone()
     users = sorted(USERS)
     if not last:
         return users[0] if users else None
@@ -602,13 +606,18 @@ def api_reto():
     db = get_db()
     rows = db.execute(MATCH_SQL, (user, other_user(user) or "")).fetchall()
     picks = {r["book_id"]: r for r in db.execute("SELECT * FROM picks")}
+    in_rows = {r["id"] for r in rows}
+    extra_ids = [i for i in picks if i not in in_rows]
+    if extra_ids:  # lecturas apuntadas a mano que no son coincidencias
+        rows += db.execute(f"SELECT * FROM books WHERE id IN ({','.join('?' * len(extra_ids))})", extra_ids).fetchall()
     votes = votes_for(db, [r["id"] for r in rows])
     pool, chosen = [], []
     for r in rows:
         b = book_dict(r, votes, user)
         p = picks.get(r["id"])
         if p:
-            b["pick"] = {"status": p["status"], "by": p["picked_by"], "added": p["added"], "updated": p["updated"]}
+            b["pick"] = {"status": p["status"], "by": p["picked_by"], "added": p["added"], "updated": p["updated"],
+                         "manual": not p["turn"]}
             chosen.append(b)
         else:
             pool.append(b)
@@ -629,12 +638,18 @@ def api_reto_pick():
     db = get_db()
     user = session["user"]
     book_id = data.get("book_id")
-    if not db.execute(MATCH_SQL + " WHERE b.id = ?", (user, other_user(user) or "", book_id)).fetchone():
-        abort(404)  # solo libros que queréis leer los dos
+    is_match = db.execute(MATCH_SQL + " WHERE b.id = ?", (user, other_user(user) or "", book_id)).fetchone()
+    if not is_match:
+        # Solo libros que queréis leer los dos… salvo para SEARCH_USERS, que pueden apuntar
+        # cualquier libro (p. ej. una lectura del reto que ya hicisteis antes de la app).
+        if user not in SEARCH_USERS or not db.execute("SELECT 1 FROM books WHERE id = ?", (book_id,)).fetchone():
+            abort(404)
     if status is None:
         db.execute("DELETE FROM picks WHERE book_id = ?", (book_id,))
     else:
-        db.execute("INSERT OR IGNORE INTO picks (book_id, picked_by, status) VALUES (?,?,?)", (book_id, user, status))
+        # Si se apunta directamente como leída (lectura pasada), no gasta turno
+        db.execute("INSERT OR IGNORE INTO picks (book_id, picked_by, status, turn) VALUES (?,?,?,?)",
+                   (book_id, user, status, 0 if status == "done" else 1))
         db.execute("UPDATE picks SET status = ?, updated = datetime('now') WHERE book_id = ?", (status, book_id))
     db.commit()
     return jsonify(ok=True, turn=whose_turn(db))

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Reto · Coffee & Chapters{% endblock %}
 {% block content %}
-<section class="panel wide reto" id="reto" data-me="{{ user }}" data-other="{{ other or '' }}">
+<section class="panel wide reto" id="reto" data-me="{{ user }}" data-other="{{ other or '' }}" data-admin="{{ '1' if can_search else '' }}">
   <div class="reto-head">
     <h1>📚 El reto</h1>
     {% if can_search %}<a class="btn small" href="{{ url_for('export_xlsx') }}">⬇️ Excel</a>{% endif %}
@@ -24,8 +24,14 @@
   <div class="candidate" id="candidate" hidden></div>
   <ul class="booklist" id="pool"></ul>
 
-  <details class="done-box">
+  <details class="done-box" id="donebox">
     <summary><h2>✅ Terminadas <span class="muted" id="donecount"></span></h2></summary>
+    {% if can_search %}
+    <div class="finder past">
+      <input id="pastq" placeholder="➕ Apuntar una lectura ya hecha…" autocomplete="off">
+      <ul id="pastres" hidden></ul>
+    </div>
+    {% endif %}
     <ul class="booklist" id="done"></ul>
   </details>
 </section>
