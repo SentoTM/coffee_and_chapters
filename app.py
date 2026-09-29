@@ -12,11 +12,12 @@ import json
 import os
 import random
 import sqlite3
+from datetime import date
 from functools import wraps
 from urllib.parse import quote_plus
 
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
-                   request, session, url_for)
+                   request, send_file, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -104,6 +105,14 @@ CREATE TABLE IF NOT EXISTS votes (
     is_read  INTEGER NOT NULL DEFAULT 0,
     updated  TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (username, book_id)
+);
+-- Lecturas del reto: libros elegidos de entre los de "Nos lo quedamos"
+CREATE TABLE IF NOT EXISTS picks (
+    book_id   INTEGER PRIMARY KEY REFERENCES books(id) ON DELETE CASCADE,
+    picked_by TEXT NOT NULL,
+    status    TEXT NOT NULL DEFAULT 'next' CHECK (status IN ('next','reading','done')),
+    added     TEXT NOT NULL DEFAULT (datetime('now')),
+    updated   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 
@@ -554,6 +563,157 @@ def api_list(kind):
     ).fetchall()
     votes = votes_for(db, [r["id"] for r in rows])
     return jsonify(books=[book_dict(r, votes, user) for r in rows])
+
+
+# --------------------------------------------------------------------------- #
+# Reto: elegir qué leer de entre los que os quedáis
+# --------------------------------------------------------------------------- #
+PICK_STATUS = ("next", "reading", "done")
+MATCH_SQL = """SELECT b.* FROM books b
+    JOIN votes v1 ON v1.book_id = b.id AND v1.username = ? AND v1.decision = 'want'
+    JOIN votes v2 ON v2.book_id = b.id AND v2.username = ? AND v2.decision = 'want'"""
+
+
+def current_season(today=None):
+    m = (today or date.today()).month
+    return {12: "Invierno", 1: "Invierno", 2: "Invierno", 3: "Primavera", 4: "Primavera", 5: "Primavera",
+            6: "Verano", 7: "Verano", 8: "Verano"}.get(m, "Otoño")
+
+
+def whose_turn(db):
+    """Elegís por turnos: le toca a quien no eligió la última lectura."""
+    last = db.execute("SELECT picked_by FROM picks ORDER BY added DESC, rowid DESC LIMIT 1").fetchone()
+    users = sorted(USERS)
+    if not last:
+        return users[0] if users else None
+    return other_user(last["picked_by"]) or last["picked_by"]
+
+
+@app.route("/reto")
+@login_required
+def reto():
+    return render_template("reto.html", user=session["user"], other=other_user(session["user"]))
+
+
+@app.route("/api/reto")
+@login_required
+def api_reto():
+    user = session["user"]
+    db = get_db()
+    rows = db.execute(MATCH_SQL, (user, other_user(user) or "")).fetchall()
+    picks = {r["book_id"]: r for r in db.execute("SELECT * FROM picks")}
+    votes = votes_for(db, [r["id"] for r in rows])
+    pool, chosen = [], []
+    for r in rows:
+        b = book_dict(r, votes, user)
+        p = picks.get(r["id"])
+        if p:
+            b["pick"] = {"status": p["status"], "by": p["picked_by"], "added": p["added"], "updated": p["updated"]}
+            chosen.append(b)
+        else:
+            pool.append(b)
+    chosen.sort(key=lambda b: (PICK_STATUS.index(b["pick"]["status"]) if b["pick"]["status"] != "done" else 9,
+                               b["pick"]["updated"] if b["pick"]["status"] == "done" else b["pick"]["added"]),
+                reverse=False)
+    return jsonify(pool=pool, picks=chosen, turn=whose_turn(db), season=current_season(), me=user)
+
+
+@app.route("/api/reto/pick", methods=["POST"])
+@login_required
+def api_reto_pick():
+    """{book_id, status: next|reading|done|null}. null = quitar del reto."""
+    data = request.get_json(force=True, silent=True) or {}
+    status = data.get("status", "next")
+    if status is not None and status not in PICK_STATUS:
+        abort(400)
+    db = get_db()
+    user = session["user"]
+    book_id = data.get("book_id")
+    if not db.execute(MATCH_SQL + " WHERE b.id = ?", (user, other_user(user) or "", book_id)).fetchone():
+        abort(404)  # solo libros que queréis leer los dos
+    if status is None:
+        db.execute("DELETE FROM picks WHERE book_id = ?", (book_id,))
+    else:
+        db.execute("INSERT OR IGNORE INTO picks (book_id, picked_by, status) VALUES (?,?,?)", (book_id, user, status))
+        db.execute("UPDATE picks SET status = ?, updated = datetime('now') WHERE book_id = ?", (status, book_id))
+    db.commit()
+    return jsonify(ok=True, turn=whose_turn(db))
+
+
+# --------------------------------------------------------------------------- #
+# Exportar a Excel (solo SEARCH_USERS)
+# --------------------------------------------------------------------------- #
+DECISION_ES = {"want": "Leer", "reject": "Descartado", "skip": "Pasado", None: ""}
+STATUS_ES = {"next": "Próxima", "reading": "Leyendo", "done": "Terminada"}
+
+
+@app.route("/exportar")
+@login_required
+def export_xlsx():
+    if session["user"] not in SEARCH_USERS:
+        abort(403)
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    db = get_db()
+    users = sorted(USERS)
+    rows = db.execute("SELECT * FROM books ORDER BY level, title").fetchall()
+    votes = votes_for(db, [r["id"] for r in rows])
+    picks = {r["book_id"]: r for r in db.execute("SELECT * FROM picks")}
+
+    def who_read(v):
+        readers = [u.capitalize() for u in users if v.get(u, {}).get("read")]
+        return {0: "Nadie", len(users): "Los dos"}.get(len(readers), " y ".join(readers))
+
+    def base(r):
+        extra = json.loads(r["extra"] or "{}")
+        return [_clean(r["ext_id"]), r["title"], r["original"] if r["original"] != r["title"] else "", r["author"],
+                r["level"], extra.get("Estación", ""), extra.get("Año", ""), extra.get("Género", ""), r["blurb"]]
+
+    head = ["Nº", "Título", "Título original", "Autor", "Nivel", "Estación", "Año", "Género", "Sinopsis"]
+    wb = Workbook()
+
+    ws = wb.active
+    ws.title = "Nos lo quedamos"
+    ws.append(head + ["Quién lo ha leído", "En el reto"])
+    matches = [r for r in rows if all(votes.get(r["id"], {}).get(u, {}).get("decision") == "want" for u in users)]
+    season_order = {"Primavera": 0, "Verano": 1, "Otoño": 2, "Invierno": 3}
+    matches.sort(key=lambda r: (season_order.get(json.loads(r["extra"] or "{}").get("Estación", ""), 9), r["level"], r["title"]))
+    for r in matches:
+        p = picks.get(r["id"])
+        ws.append(base(r) + [who_read(votes.get(r["id"], {})), STATUS_ES[p["status"]] if p else ""])
+
+    ws2 = wb.create_sheet("Todos")
+    ws2.append(head + [f"{u.capitalize()} {k}" for u in users for k in ("decide", "leído")] + ["Coinciden"])
+    for r in rows:
+        v = votes.get(r["id"], {})
+        per = []
+        for u in users:
+            per += [DECISION_ES[v.get(u, {}).get("decision")], "Sí" if v.get(u, {}).get("read") else ""]
+        ds = {v.get(u, {}).get("decision") for u in users}
+        same = "💞 Los dos quieren" if ds == {"want"} else "🗑️ Los dos lo descartan" if ds == {"reject"} else ""
+        ws2.append(base(r) + per + [same])
+
+    for sheet in (ws, ws2):
+        for c in sheet[1]:
+            c.font = Font(bold=True, color="FFFFFF")
+            c.fill = PatternFill("solid", fgColor="8A5A3C")
+            c.alignment = Alignment(vertical="center", wrap_text=True)
+        widths = {"A": 6, "B": 34, "C": 30, "D": 26, "E": 20, "F": 11, "G": 8, "H": 22, "I": 60}
+        for col, w in widths.items():
+            sheet.column_dimensions[col].width = w
+        for col in "JKLMNO":
+            sheet.column_dimensions[col].width = 16
+        for row in sheet.iter_rows(min_row=2):
+            row[8].alignment = Alignment(wrap_text=True, vertical="top")
+        sheet.freeze_panes = "C2"
+        sheet.auto_filter.ref = sheet.dimensions
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name=f"coffee_and_chapters_{date.today():%Y-%m-%d}.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 @app.route("/health")

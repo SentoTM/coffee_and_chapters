@@ -11,6 +11,11 @@ Flask + SQLite, desplegado en Railway.
 - **🔎 Buscador** en Descubrir para cargar un libro concreto como tarjeta (solo para los usuarios de `SEARCH_USERS`, por defecto `sento`). En **Listas → Todos** también se puede buscar y ver el estado de los dos.
 - **💞 Nos lo quedamos**: cuando los dos elegís leer un libro, salta el match y entra en el reto
 - **Listas**: nos lo quedamos, leer, pasados, descartados, leídos y todos, con el estado de los dos
+- **📚 Reto**: de entre los que os quedáis, elegís qué leer **por turnos** (le toca a quien no eligió la última).
+  Filtro por estación (arranca en la actual) y "solo los que no ha leído ninguno"; **🎲 Sorpréndenos** saca uno al azar.
+  Cada lectura pasa por Próximas → Leyendo ahora → Terminadas.
+- **⬇️ Excel** (solo `SEARCH_USERS`): descarga en `/exportar` con dos hojas, *Nos lo quedamos* (quién lo ha leído y
+  si ya está en el reto) y *Todos* (lo que ha decidido cada uno).
 - **Datos**: al arrancar con la base vacía se carga `seed/coffee_and_chapters.xlsx` (hojas *Criba* + *Lista*),
   con quién ha leído cada libro (columnas *Vicen* → `sento`, *Andrea* → `and`; «Leído» o «Releer»). Las decisiones se toman deslizando. El nivel 7 y el nº 112 (Inferno, ya dentro de La Divina Comedia) no se cargan.
   Desde **Importar** (solo usuarios de `SEARCH_USERS`, como el buscador) se puede subir una versión ampliada; lo que ya existe no se toca.

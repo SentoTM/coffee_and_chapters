@@ -13,6 +13,7 @@
   <div class="filters">
     <input class="search" id="q" placeholder="Buscar por título o autor…">
     <span class="muted small" id="count"></span>
+    {% if can_search %}<a class="btn small" href="{{ url_for('export_xlsx') }}" title="Descargar todo en Excel">⬇️ Excel</a>{% endif %}
   </div>
   <ul class="booklist" id="list" data-me="{{ user }}" data-other="{{ other or '' }}"></ul>
 </section>

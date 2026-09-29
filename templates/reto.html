@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Reto · Coffee & Chapters{% endblock %}
+{% block content %}
+<section class="panel wide reto" id="reto" data-me="{{ user }}" data-other="{{ other or '' }}">
+  <div class="reto-head">
+    <h1>📚 El reto</h1>
+    {% if can_search %}<a class="btn small" href="{{ url_for('export_xlsx') }}">⬇️ Excel</a>{% endif %}
+  </div>
+  <p class="turn" id="turn"></p>
+
+  <h2>📖 Leyendo ahora</h2>
+  <ul class="booklist" id="reading"></ul>
+  <h2>⏳ Próximas</h2>
+  <ul class="booklist" id="next"></ul>
+
+  <h2>🎲 Elegir la siguiente</h2>
+  <p class="muted small">De entre los que queréis leer los dos. Elegís por turnos: quien elige añade uno y le pasa el turno al otro.</p>
+  <div class="tabs" id="seasons"></div>
+  <label class="check"><input type="checkbox" id="fresh"> Solo los que no ha leído ninguno</label>
+  <div class="roll">
+    <button class="btn primary" id="roll">🎲 Sorpréndenos</button>
+    <span class="muted small" id="poolcount"></span>
+  </div>
+  <div class="candidate" id="candidate" hidden></div>
+  <ul class="booklist" id="pool"></ul>
+
+  <details class="done-box">
+    <summary><h2>✅ Terminadas <span class="muted" id="donecount"></span></h2></summary>
+    <ul class="booklist" id="done"></ul>
+  </details>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='reto.js') }}"></script>{% endblock %}

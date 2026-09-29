@@ -192,3 +192,26 @@ body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
 .finder li { padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: .9rem; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
 .finder li:hover { background: var(--bg); }
 .finder li .st { margin-left: auto; color: var(--muted); }
+
+/* ---------- reto ---------- */
+.reto h2 { font-size: 1.05rem; margin: 22px 0 8px; }
+.reto-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.reto-head h1 { margin: 0; }
+.btn.small { padding: 6px 12px; font-size: .85rem; white-space: nowrap; }
+.turn { margin: 8px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.turn:empty { display: none; }
+.check { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 10px 0; color: var(--ink); }
+.check input { width: auto; }
+.roll { display: flex; align-items: center; gap: 12px; margin: 8px 0 12px; }
+.roll .btn:disabled { opacity: .5; cursor: default; }
+.candidate { border: 2px solid var(--accent); border-radius: 18px; padding: 18px; margin: 0 0 16px; text-align: center; background: var(--bg); animation: pop .35s ease; }
+.candidate h3 { margin: 4px 0 2px; font-size: 1.3rem; }
+.cand-cover { font-size: 40px; line-height: 1; }
+.cand-ops { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+.candidate .chips { justify-content: center; }
+.done-box summary { cursor: pointer; list-style: none; }
+.done-box summary::-webkit-details-marker { display: none; }
+.done-box summary h2 { display: inline; }
+.done-box summary h2::before { content: "▸ "; color: var(--muted); }
+.done-box[open] summary h2::before { content: "▾ "; }
+.tabs button.on .muted { color: rgba(255,255,255,.8); }

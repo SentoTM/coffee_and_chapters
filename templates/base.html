@@ -14,6 +14,7 @@
     <nav>
       <a href="{{ url_for('swipe') }}" class="{{ 'on' if request.endpoint=='swipe' }}">Descubrir</a>
       <a href="{{ url_for('lists') }}" class="{{ 'on' if request.endpoint=='lists' }}">Listas</a>
+      <a href="{{ url_for('reto') }}" class="{{ 'on' if request.endpoint=='reto' }}">Reto</a>
       {% if can_search %}<a href="{{ url_for('import_view') }}" class="{{ 'on' if request.endpoint=='import_view' }}">Importar</a>{% endif %}
       <a href="{{ url_for('logout') }}" title="Cerrar sesión de {{ user }}">Salir</a>
     </nav>
