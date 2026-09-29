@@ -13,7 +13,7 @@ Flask + SQLite, desplegado en Railway.
 - **Listas**: nos lo quedamos, leer, pasados, descartados, leídos y todos, con el estado de los dos
 - **Datos**: al arrancar con la base vacía se carga `seed/coffee_and_chapters.xlsx` (hojas *Criba* + *Lista*),
   con quién ha leído cada libro (columnas *Vicen* → `sento`, *Andrea* → `and`; «Leído» o «Releer»). Las decisiones se toman deslizando. El nivel 7 y el nº 112 (Inferno, ya dentro de La Divina Comedia) no se cargan.
-  Desde **Importar** se puede subir una versión ampliada; lo que ya existe no se toca.
+  Desde **Importar** (solo usuarios de `SEARCH_USERS`, como el buscador) se puede subir una versión ampliada; lo que ya existe no se toca.
 - **Sinopsis**: cada tarjeta muestra una sinopsis breve sacada de `seed/sinopsis.tsv` (Nº ⇥ texto). Se sincroniza en cada arranque,
   así que basta con editar ese fichero y desplegar.
 

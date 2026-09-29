@@ -50,7 +50,7 @@ def load_users():
 
 
 USERS = load_users()
-# Quién ve el buscador en Descubrir
+# Quién ve las herramientas de administración: el buscador en Descubrir y la página Importar
 SEARCH_USERS = {u.strip().lower() for u in os.environ.get("SEARCH_USERS", "sento").split(",") if u.strip()}
 
 # Columnas del Excel con el estado previo de cada persona → usuario de la app
@@ -70,6 +70,11 @@ def login_required(view):
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
     return wrapper
+
+
+@app.context_processor
+def inject_permissions():
+    return {"can_search": session.get("user") in SEARCH_USERS}
 
 
 def other_user(user):
@@ -404,7 +409,7 @@ def logout():
 @app.route("/")
 @login_required
 def swipe():
-    return render_template("swipe.html", user=session["user"], can_search=session["user"] in SEARCH_USERS)
+    return render_template("swipe.html", user=session["user"])
 
 
 @app.route("/listas")
@@ -416,6 +421,8 @@ def lists():
 @app.route("/importar", methods=["GET", "POST"])
 @login_required
 def import_view():
+    if session["user"] not in SEARCH_USERS:
+        abort(403)
     db = get_db()
     if request.method == "POST":
         f = request.files.get("file")
