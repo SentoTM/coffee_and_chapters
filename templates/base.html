@@ -10,12 +10,12 @@
 <body>
   {% if user %}
   <header class="topbar">
-    <a class="brand" href="{{ url_for('swipe') }}">☕ Coffee &amp; Chapters</a>
+    <a class="brand" href="{{ url_for('swipe') }}">☕<span class="brand-name"> Coffee &amp; Chapters</span></a>
     <nav>
       <a href="{{ url_for('swipe') }}" class="{{ 'on' if request.endpoint=='swipe' }}">Descubrir</a>
       <a href="{{ url_for('lists') }}" class="{{ 'on' if request.endpoint=='lists' }}">Listas</a>
       <a href="{{ url_for('import_view') }}" class="{{ 'on' if request.endpoint=='import_view' }}">Importar</a>
-      <a href="{{ url_for('logout') }}" title="Cerrar sesión">Salir ({{ user }})</a>
+      <a href="{{ url_for('logout') }}" title="Cerrar sesión de {{ user }}">Salir</a>
     </nav>
   </header>
   {% endif %}

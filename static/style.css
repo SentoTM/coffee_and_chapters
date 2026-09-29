@@ -88,7 +88,6 @@ input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border
 
 /* ---------- v2: leído aparte, chips ---------- */
 .orig { margin: 0 0 2px; font-style: italic; color: var(--muted); font-size: .9rem; }
-.again { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: .75rem; color: var(--skip); font-weight: 600; }
 .card.is-read { border-color: var(--read); box-shadow: 0 0 0 2px var(--read), var(--shadow); }
 .card.is-read .cover::after { content: " ✓"; color: var(--read); font-size: 32px; vertical-align: top; }
 .readtoggle { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: .95rem; padding: 8px 16px; border-radius: 999px;
@@ -107,3 +106,56 @@ input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border
 .filters { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; }
 .filters .search { margin: 0; flex: 1; }
 @media (max-width: 560px) { .booklist li { flex-direction: column; align-items: stretch; } .ops { justify-content: flex-end; } }
+
+/* ---------- v3: tarjeta que cabe en pantalla + tono por estación ---------- */
+main:has(.swipe) { padding-top: 10px; padding-bottom: 8px; }
+.swipe { gap: 10px; height: calc(100dvh - 72px); min-height: 520px; }
+.deck { flex: 1; height: auto; min-height: 0; }
+.card { padding: 20px 20px 16px; background: linear-gradient(180deg, var(--tint, var(--surface)) 0, var(--surface) 42%); }
+.cover { font-size: 44px; margin: 22px 0 2px; line-height: 1; }
+.card.is-read .cover::after { font-size: 24px; }
+.card h2 { font-size: 1.35rem; margin: 6px 0 2px; }
+.author { font-size: 1rem; }
+.card dl { margin-top: 12px; gap: 0; }
+.kv { padding: 5px 0; }
+.kv dt, .kv dd { font-size: .85rem; }
+.why { margin: 10px 0 0; font-size: .85rem; font-style: italic; color: var(--muted); }
+.again { margin: 4px 0 0; font-size: .78rem; font-weight: 600; color: var(--skip); }
+.other { padding-top: 10px; }
+.season-chip { position: absolute; top: 16px; left: 16px; font-size: .75rem; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  background: var(--surface); color: var(--tint-ink, var(--muted)); border: 1px solid var(--tint-line, var(--line)); }
+.season-primavera { --tint: #eaf4e4; --tint-ink: #4f8a3c; --tint-line: #cfe4c3; }
+.season-verano    { --tint: #fdf1d6; --tint-ink: #b07d12; --tint-line: #f2dca6; }
+.season-otono     { --tint: #f8e4d3; --tint-ink: #a4552a; --tint-line: #ecc8ab; }
+.season-invierno  { --tint: #e3ecf5; --tint-ink: #4b6f94; --tint-line: #c7d7e8; }
+@media (prefers-color-scheme: dark) {
+  .season-primavera { --tint: #26331f; --tint-ink: #9cd08a; --tint-line: #3a4d30; }
+  .season-verano    { --tint: #3a3018; --tint-ink: #e6c06a; --tint-line: #52451f; }
+  .season-otono     { --tint: #3b261a; --tint-ink: #e59a6c; --tint-line: #553624; }
+  .season-invierno  { --tint: #1f2a36; --tint-ink: #93b4d8; --tint-line: #2f3f52; }
+}
+.act { width: 54px; height: 54px; }
+.act.undo, .act.skip { width: 44px; height: 44px; }
+.readtoggle { padding: 6px 14px; font-size: .9rem; }
+.hint { font-size: .75rem; }
+@media (max-height: 700px) { .hint { display: none; } .cover { font-size: 36px; margin-top: 20px; } }
+
+/* listas: los botones sin elegir en gris para no confundir con el estado */
+.ops .mini.want, .ops .mini.skip, .ops .mini.reject, .ops .mini.read { color: var(--muted); opacity: .7; }
+.ops .mini:hover { opacity: 1; }
+.ops .mini.on { opacity: 1; color: #fff; }
+
+/* layout a pantalla completa en Descubrir */
+body:has(.swipe) { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
+.swipe { height: 100%; min-height: 0; }
+.cover { margin-top: 30px; }
+/* cabecera en una sola línea */
+.topbar { flex-wrap: nowrap; padding: 8px 12px; gap: 8px; }
+.topbar nav { flex-wrap: nowrap; gap: 2px; }
+.topbar nav a { padding: 6px 8px; white-space: nowrap; }
+@media (max-width: 480px) {
+  .brand .brand-name { display: none; }
+  .brand { font-size: 1.3rem; }
+  .topbar nav a { font-size: .9rem; padding: 6px 7px; }
+}

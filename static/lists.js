@@ -4,7 +4,7 @@
   const count = document.getElementById("count");
   const q = document.getElementById("q");
   const tabs = document.getElementById("tabs");
-  const OTHER = list.dataset.other;
+  const OTHER = list.dataset.other.replace(/^./, (c) => c.toUpperCase());
   let kind = "match";
   let books = [];
 
@@ -12,7 +12,7 @@
     match: `Los que queréis leer los dos: candidatos para el reto.`,
     want: "Los que has marcado para leer. «Releer» = ya lo habías leído y quieres volver a él.",
     skip: "Los que dejaste para más tarde. Vuelven a salir al acabar con los nuevos.",
-    reject: "Los que has descartado (incluye todo el nivel 7).",
+    reject: "Los que has descartado.",
     read: "Los que ya has leído, con lo que has decidido sobre releerlos.",
     all: "Todos los libros, con el estado de los dos.",
   };

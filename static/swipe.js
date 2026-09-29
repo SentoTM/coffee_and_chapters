@@ -13,6 +13,7 @@
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+  const cap = (s) => String(s || "").replace(/^./, (c) => c.toUpperCase());
 
   function renderStats(s) {
     if (!s) return;
@@ -28,21 +29,33 @@
     const parts = [];
     if (o.decision) parts.push(OTHER[o.decision]);
     if (o.read) parts.push("ya lo ha leído");
-    return `<p class="other ${o.decision || "read"}">${esc(o.user)} ${parts.join(" · ")}</p>`;
+    return `<p class="other ${o.decision || "read"}">${esc(cap(o.user))} ${parts.join(" · ")}</p>`;
   }
 
+  const SEASONS = {
+    primavera: { icon: "🌷", label: "Lectura de primavera" },
+    verano: { icon: "☀️", label: "Lectura de verano" },
+    otono: { icon: "🍂", label: "Lectura de otoño" },
+    invierno: { icon: "❄️", label: "Lectura de invierno" },
+  };
+  const seasonKey = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
   function cardHTML(b) {
-    const extra = Object.entries(b.extra || {})
+    const { "Por qué": why, ...rest } = b.extra || {};
+    const rows = Object.entries(rest)
       .map(([k, v]) => `<div class="kv"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
+    const se = SEASONS[seasonKey(b.season)];
     return `
+      ${se ? `<span class="season-chip">${se.icon} ${se.label}</span>` : ""}
       <a class="gr" href="${esc(b.goodreads)}" target="_blank" rel="noopener" title="Buscar en Goodreads (?)">?</a>
-      ${b.me.decision === "skip" ? `<span class="again">Lo pasaste antes</span>` : ""}
       <div class="stamp"></div>
-      <div class="cover">📖</div>
+      <div class="cover">${se ? se.icon : "📖"}</div>
       <h2>${esc(b.title)}</h2>
       ${b.original ? `<p class="orig">${esc(b.original)}</p>` : ""}
       ${b.author ? `<p class="author">${esc(b.author)}</p>` : ""}
-      ${extra ? `<dl>${extra}</dl>` : ""}
+      ${b.me.decision === "skip" ? `<p class="again">⏭ Lo pasaste antes</p>` : ""}
+      ${rows ? `<dl>${rows}</dl>` : ""}
+      ${why ? `<p class="why">“${esc(why)}”</p>` : ""}
       ${otherLine(b.other)}`;
   }
 
@@ -60,7 +73,7 @@
     empty.hidden = true;
     readBtn.disabled = false;
     const el = document.createElement("article");
-    el.className = "card enter";
+    el.className = "card enter season-" + (seasonKey(book.season) || "none");
     el.innerHTML = cardHTML(book);
     deck.appendChild(el);
     requestAnimationFrame(() => el.classList.remove("enter"));

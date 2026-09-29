@@ -10,7 +10,7 @@ Flask + SQLite, desplegado en Railway.
 - **?** busca el libro en Goodreads · **↶** deshace
 - **Listas**: coincidencias (los dos queréis leerlo), leer, pasados, descartados, leídos y todos, con el estado de los dos
 - **Datos**: al arrancar con la base vacía se carga `seed/coffee_and_chapters.xlsx` (hojas *Criba* + *Lista*),
-  con los estados previos de las columnas *Vicen* → `sento` y *Andrea* → `and`. El nivel 7 y el nº 112 (Inferno, ya dentro de La Divina Comedia) no se cargan.
+  con el estado previo de la columna de cada uno (*Vicen* → `sento`, *Andrea* → `and`; la columna conjunta *¿Nos lo quedamos?* no se usa). El nivel 7 y el nº 112 (Inferno, ya dentro de La Divina Comedia) no se cargan.
   Desde **Importar** se puede subir una versión ampliada; lo que ya existe no se toca.
 
 ## Arrancar en local

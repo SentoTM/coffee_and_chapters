@@ -23,7 +23,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(BASE_DIR, "data", "app.db"))
 SEED_FILE = os.environ.get("SEED_FILE", os.path.join(BASE_DIR, "seed", "coffee_and_chapters.xlsx"))
 DECISIONS = ("want", "reject", "skip")
-SCHEMA_VERSION = 2
+# Libros que no entran nunca: nivel 7 (descartables) y duplicados/solapados por Nº
+# (112 Inferno ya está dentro de 235 La Divina Comedia).
+EXCLUDED_LEVEL_PREFIX = "7"
+EXCLUDED_IDS = {x.strip() for x in os.environ.get("EXCLUDED_IDS", "112").split(",") if x.strip()}
+SCHEMA_VERSION = 3
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-cambia-esto")
@@ -119,18 +123,63 @@ def close_db(_exc):
 def init_db():
     db = connect()
     version = db.execute("PRAGMA user_version").fetchone()[0]
-    if version < SCHEMA_VERSION:
-        # Versión anterior (sin datos reales todavía): se recrea.
+    if version < 2:
+        # Versión 1 (sin datos reales): se recrea.
         db.executescript("DROP TABLE IF EXISTS votes; DROP TABLE IF EXISTS books;")
     db.executescript(SCHEMA)
+    if version == 2:
+        migrate_v3(db)
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     db.commit()
+    purge_excluded(db)
     empty = db.execute("SELECT COUNT(*) FROM books").fetchone()[0] == 0
     if empty and os.path.exists(SEED_FILE):
         with open(SEED_FILE, "rb") as f:
             res = import_books(db, os.path.basename(SEED_FILE), f.read())
         print(f"[seed] {res}")
     db.close()
+
+
+def migrate_v3(db):
+    """v2 marcaba 'leer' a los dos con '¿Nos lo quedamos? = Sí'. Se deshace solo en los votos
+    que siguen tal cual los dejó la carga inicial (no toca lo que hayáis deslizado)."""
+    if not os.path.exists(SEED_FILE):
+        return
+    with open(SEED_FILE, "rb") as f:
+        records = read_records(os.path.basename(SEED_FILE), f.read())
+    fixed = 0
+    for rec in records:
+        if _norm(_pick(rec, "¿nos lo quedamos?")) not in ("sí", "si"):
+            continue
+        ext_id = _pick(rec, "nº", "n", "id")
+        low = {_norm(k): k for k in rec}
+        for user in USERS:
+            col = next((c for c, u in USER_COLUMNS.items() if u == user), None)
+            decision, _ = status_from_cell(rec.get(low.get(col))) if col in low else (None, 0)
+            if decision:  # su propia columna ya decía 'leer'
+                continue
+            cur = db.execute(
+                """UPDATE votes SET decision = NULL
+                   WHERE username = ? AND decision = 'want'
+                     AND book_id = (SELECT id FROM books WHERE ext_id = ?)
+                     AND julianday(updated) - julianday((SELECT added FROM books WHERE ext_id = ?)) < 60.0/86400""",
+                (user, ext_id, ext_id))
+            fixed += cur.rowcount
+    db.execute("DELETE FROM votes WHERE decision IS NULL AND is_read = 0")
+    db.commit()
+    print(f"[migrate v3] {fixed} votos 'leer' del Sí conjunto deshechos")
+
+
+def purge_excluded(db):
+    """Quita de la base los libros excluidos (y sus votos) si ya estaban cargados."""
+    ph = ",".join("?" * len(EXCLUDED_IDS)) or "NULL"
+    db.execute(f"DELETE FROM books WHERE level LIKE ? OR ext_id IN ({ph})",
+               [EXCLUDED_LEVEL_PREFIX + "%", *EXCLUDED_IDS])
+    db.commit()
+
+
+def is_excluded(ext_id, level):
+    return (ext_id in EXCLUDED_IDS) or level.startswith(EXCLUDED_LEVEL_PREFIX)
 
 
 # --------------------------------------------------------------------------- #
@@ -219,7 +268,7 @@ def status_from_cell(value):
 
 def import_books(db, filename, data):
     records = read_records(filename, data)
-    added = existing = 0
+    added = existing = excluded = 0
     for rec in records:
         original = _pick(rec, "obra", "titulo", "título", "title", "libro")
         if not original:
@@ -228,6 +277,9 @@ def import_books(db, filename, data):
         author = _pick(rec, "autor", "autora", "author", "autores")
         ext_id = _pick(rec, "nº", "n", "id") or None
         level = _pick(rec, "nivel", "nivel criba")
+        if is_excluded(ext_id, level):
+            excluded += 1
+            continue
         extra = {label: _pick(rec, *keys) for label, keys in CARD_FIELDS}
         extra = {k: v for k, v in extra.items() if v}
         if not CARD_FIELDS or not extra:  # CSV genérico: muestra todo lo demás
@@ -245,24 +297,19 @@ def import_books(db, filename, data):
         added += 1
         book_id = cur.lastrowid
 
-        # Estado previo que traía el Excel (solo para libros nuevos)
-        keep = _norm(_pick(rec, "¿nos lo quedamos?")) in ("sí", "si")
-        discard = level.startswith("7")
+        # Estado previo de la columna de cada persona (solo para libros nuevos).
+        # '¿Nos lo quedamos?' es conjunta y no se usa.
         low = {_norm(k): k for k in rec}
         for user in USERS:
             col = next((c for c, u in USER_COLUMNS.items() if u == user), None)
             decision, is_read = status_from_cell(rec.get(low.get(col))) if col in low else (None, 0)
-            if decision is None and keep and not is_read:
-                decision = "want"
-            if discard:
-                decision = "reject"
             if decision or is_read:
                 db.execute(
                     "INSERT OR IGNORE INTO votes (username, book_id, decision, is_read) VALUES (?,?,?,?)",
                     (user, book_id, decision, is_read),
                 )
     db.commit()
-    return {"added": added, "existing": existing}
+    return {"added": added, "existing": existing, "excluded": excluded}
 
 
 # --------------------------------------------------------------------------- #
@@ -278,7 +325,12 @@ def votes_for(db, book_ids):
     return out
 
 
+HIDDEN_FIELDS = {"País", "Idioma", "Estación"}  # no se muestran como fila en la tarjeta
+
+
 def book_dict(row, votes, user):
+    extra = json.loads(row["extra"] or "{}")
+    season = extra.get("Estación", "")
     q = f'{row["original"] or row["title"]} {row["author"]}'.strip()
     v = votes.get(row["id"], {})
     empty = {"decision": None, "read": False}
@@ -290,7 +342,8 @@ def book_dict(row, votes, user):
         "original": row["original"] if row["original"] != row["title"] else "",
         "author": row["author"],
         "level": row["level"],
-        "extra": json.loads(row["extra"] or "{}"),
+        "season": season,
+        "extra": {k: v for k, v in extra.items() if k not in HIDDEN_FIELDS},
         "goodreads": "https://www.goodreads.com/search?q=" + quote_plus(q),
         "me": v.get(user, empty),
         "other": {"user": other, **v.get(other, empty)} if other else None,
@@ -353,7 +406,7 @@ def import_view():
         else:
             try:
                 r = import_books(db, f.filename, f.read())
-                flash(f"Importados {r['added']} libros nuevos ({r['existing']} ya existían)")
+                flash(f"Importados {r['added']} libros nuevos ({r['existing']} ya existían, {r['excluded']} excluidos)")
             except Exception as e:  # noqa: BLE001
                 flash(f"Error al importar: {e}")
         return redirect(url_for("import_view"))
