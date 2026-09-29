@@ -9,7 +9,7 @@
   let books = [];
 
   const DESC = {
-    match: `Los que queréis leer los dos: candidatos para el reto.`,
+    match: "Los que queréis leer los dos: estos son los que entran en el reto.",
     want: "Los que has marcado para leer. «Releer» = ya lo habías leído y quieres volver a él.",
     skip: "Los que dejaste para más tarde. Vuelven a salir al acabar con los nuevos.",
     reject: "Los que has descartado.",
@@ -68,8 +68,9 @@
     const book = books.find((x) => x.id === id);
     if (b.dataset.s) {
       const decision = b.classList.contains("on") ? null : b.dataset.s;
-      await post("/api/vote", { book_id: id, decision });
+      const d = await (await post("/api/vote", { book_id: id, decision })).json();
       book.me.decision = decision;
+      if (d.match) toast(`💞 ¡Nos lo quedamos! ${book.title}`);
     } else if (b.dataset.read) {
       const read = b.dataset.read === "1";
       await post("/api/read", { book_id: id, read });
@@ -77,6 +78,14 @@
     }
     render(); // se queda en la lista hasta cambiar de pestaña, para no perder el sitio
   });
+  function toast(msg) {
+    const t = document.createElement("div");
+    t.className = "toast"; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.classList.add("out"), 2600);
+    setTimeout(() => t.remove(), 3000);
+  }
+
   q.addEventListener("input", render);
   load();
 })();

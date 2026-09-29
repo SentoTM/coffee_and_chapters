@@ -21,7 +21,7 @@
     const pct = s.total ? Math.round((done / s.total) * 100) : 0;
     statsEl.innerHTML = `
       <div class="bar"><span style="width:${pct}%"></span></div>
-      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read} leídos</span></div>`;
+      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">💞 ${s.match}</a></div>`;
   }
 
   function otherLine(o) {
@@ -102,12 +102,38 @@
     el.style.transform = `translate(${dir[0] * 140}vw, ${dir[1] * 120}vh) rotate(${dir[0] * 30}deg)`;
     el.style.opacity = 0;
     try {
-      await post("/api/vote", { book_id: book.id, decision });
+      const d = await post("/api/vote", { book_id: book.id, decision });
       history.push({ book, prev: book.me.decision });
+      if (d.match) showMatch(book);
       undoBtn.disabled = false;
       await new Promise((res) => setTimeout(res, 220));
       await loadNext(decision === "skip" ? book.id : "");
     } finally { busy = false; }
+  }
+
+  // 💞 Efecto de match: los dos queréis leerlo → "Nos lo quedamos"
+  function showMatch(book) {
+    const other = cap(book.other && book.other.user);
+    const ov = document.createElement("div");
+    ov.className = "match-overlay";
+    const bits = ["💞", "☕", "📚", "💕", "✨", "📖", "🍂"];
+    const confetti = Array.from({ length: 26 }, (_, i) => {
+      const x = Math.random() * 100, d = 1.6 + Math.random() * 1.6, delay = Math.random() * 0.6, size = 18 + Math.random() * 22;
+      return `<span class="bit" style="left:${x}%;font-size:${size}px;animation-duration:${d}s;animation-delay:${delay}s">${bits[i % bits.length]}</span>`;
+    }).join("");
+    ov.innerHTML = `${confetti}
+      <div class="match-box">
+        <div class="match-cups">☕<span>💞</span>☕</div>
+        <h3>¡Nos lo quedamos!</h3>
+        <p><strong>${esc(book.title)}</strong></p>
+        <p class="muted">Tú y ${esc(other)} queréis leerlo</p>
+        <button class="btn primary">Seguir deslizando</button>
+      </div>`;
+    document.body.appendChild(ov);
+    if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+    const close = () => { ov.classList.add("out"); setTimeout(() => ov.remove(), 300); };
+    ov.addEventListener("click", close);
+    setTimeout(close, 3500);
   }
 
   async function toggleRead() {

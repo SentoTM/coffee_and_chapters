@@ -27,7 +27,7 @@ DECISIONS = ("want", "reject", "skip")
 # (112 Inferno ya está dentro de 235 La Divina Comedia).
 EXCLUDED_LEVEL_PREFIX = "7"
 EXCLUDED_IDS = {x.strip() for x in os.environ.get("EXCLUDED_IDS", "112").split(",") if x.strip()}
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-cambia-esto")
@@ -127,8 +127,8 @@ def init_db():
         # Versión 1 (sin datos reales): se recrea.
         db.executescript("DROP TABLE IF EXISTS votes; DROP TABLE IF EXISTS books;")
     db.executescript(SCHEMA)
-    if version == 2:
-        migrate_v3(db)
+    if version in (2, 3):
+        migrate_to_v4(db)
     db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     db.commit()
     purge_excluded(db)
@@ -140,34 +140,17 @@ def init_db():
     db.close()
 
 
-def migrate_v3(db):
-    """v2 marcaba 'leer' a los dos con '¿Nos lo quedamos? = Sí'. Se deshace solo en los votos
-    que siguen tal cual los dejó la carga inicial (no toca lo que hayáis deslizado)."""
-    if not os.path.exists(SEED_FILE):
-        return
-    with open(SEED_FILE, "rb") as f:
-        records = read_records(os.path.basename(SEED_FILE), f.read())
-    fixed = 0
-    for rec in records:
-        if _norm(_pick(rec, "¿nos lo quedamos?")) not in ("sí", "si"):
-            continue
-        ext_id = _pick(rec, "nº", "n", "id")
-        low = {_norm(k): k for k in rec}
-        for user in USERS:
-            col = next((c for c, u in USER_COLUMNS.items() if u == user), None)
-            decision, _ = status_from_cell(rec.get(low.get(col))) if col in low else (None, 0)
-            if decision:  # su propia columna ya decía 'leer'
-                continue
-            cur = db.execute(
-                """UPDATE votes SET decision = NULL
-                   WHERE username = ? AND decision = 'want'
-                     AND book_id = (SELECT id FROM books WHERE ext_id = ?)
-                     AND julianday(updated) - julianday((SELECT added FROM books WHERE ext_id = ?)) < 60.0/86400""",
-                (user, ext_id, ext_id))
-            fixed += cur.rowcount
+def migrate_to_v4(db):
+    """Versiones 2-3 precargaban decisiones desde el Excel. Ahora solo se precarga 'leído':
+    se quitan las decisiones que siguen tal cual las dejó la carga inicial
+    (lo que hayáis deslizado después se respeta)."""
+    cur = db.execute(
+        """UPDATE votes SET decision = NULL
+           WHERE decision IS NOT NULL
+             AND julianday(updated) - julianday((SELECT added FROM books b WHERE b.id = votes.book_id)) < 60.0/86400""")
     db.execute("DELETE FROM votes WHERE decision IS NULL AND is_read = 0")
     db.commit()
-    print(f"[migrate v3] {fixed} votos 'leer' del Sí conjunto deshechos")
+    print(f"[migrate v4] {cur.rowcount} decisiones precargadas deshechas")
 
 
 def purge_excluded(db):
@@ -253,17 +236,11 @@ CARD_FIELDS = [
 ]
 
 
-def status_from_cell(value):
-    """Texto de la columna de una persona → (decision, is_read)."""
+def read_from_cell(value):
+    """Columna de una persona en el Excel → ¿lo ha leído? (Leído / Releer = sí).
+    El resto (Pendiente, Leyendo…) no se usa: las decisiones se toman deslizando."""
     v = _norm(value)
-    if not v:
-        return None, 0
-    if v.startswith("leído") or v.startswith("leido"):
-        return None, 1
-    if v.startswith("releer"):
-        return "want", 1
-    # Pendiente · le interesa / Pendiente · en casa / Leyendo / Diciembre…
-    return "want", 0
+    return 1 if v.startswith(("leído", "leido", "releer")) else 0
 
 
 def import_books(db, filename, data):
@@ -297,17 +274,13 @@ def import_books(db, filename, data):
         added += 1
         book_id = cur.lastrowid
 
-        # Estado previo de la columna de cada persona (solo para libros nuevos).
-        # '¿Nos lo quedamos?' es conjunta y no se usa.
+        # Del Excel solo se toma quién lo ha leído (solo para libros nuevos).
         low = {_norm(k): k for k in rec}
         for user in USERS:
             col = next((c for c, u in USER_COLUMNS.items() if u == user), None)
-            decision, is_read = status_from_cell(rec.get(low.get(col))) if col in low else (None, 0)
-            if decision or is_read:
-                db.execute(
-                    "INSERT OR IGNORE INTO votes (username, book_id, decision, is_read) VALUES (?,?,?,?)",
-                    (user, book_id, decision, is_read),
-                )
+            if col in low and read_from_cell(rec.get(low[col])):
+                db.execute("INSERT OR IGNORE INTO votes (username, book_id, is_read) VALUES (?,?,1)",
+                           (user, book_id))
     db.commit()
     return {"added": added, "existing": existing, "excluded": excluded}
 
@@ -358,6 +331,10 @@ def stats(db, user):
         s[r["decision"]] = r["c"]
     s["pending"] = total - s["want"] - s["reject"] - s["skip"]
     s["read"] = db.execute("SELECT COUNT(*) FROM votes WHERE username=? AND is_read=1", (user,)).fetchone()[0]
+    s["match"] = db.execute(
+        """SELECT COUNT(*) FROM votes v1 JOIN votes v2 ON v2.book_id = v1.book_id AND v2.username = ?
+           WHERE v1.username = ? AND v1.decision = 'want' AND v2.decision = 'want'""",
+        (other_user(user) or "", user)).fetchone()[0]
     return s
 
 
@@ -464,8 +441,14 @@ def api_vote():
     if decision is not None and decision not in DECISIONS:
         abort(400)
     db = get_db()
-    upsert_vote(db, session["user"], data.get("book_id"), decision=decision)
-    return jsonify(ok=True, stats=stats(db, session["user"]))
+    user = session["user"]
+    upsert_vote(db, user, data.get("book_id"), decision=decision)
+    match = False
+    if decision == "want" and other_user(user):
+        r = db.execute("SELECT decision FROM votes WHERE username=? AND book_id=?",
+                       (other_user(user), data.get("book_id"))).fetchone()
+        match = bool(r and r["decision"] == "want")
+    return jsonify(ok=True, match=match, stats=stats(db, user))
 
 
 @app.route("/api/read", methods=["POST"])

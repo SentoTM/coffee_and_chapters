@@ -8,9 +8,10 @@ Flask + SQLite, desplegado en Railway.
 - Desliza **→** leer · **←** descartar · **↑** pasar (vuelve a salir cuando acabes los nuevos)
 - **Ya lo he leído** es una casilla aparte: *leído + leer* = releer
 - **?** busca el libro en Goodreads · **↶** deshace
-- **Listas**: coincidencias (los dos queréis leerlo), leer, pasados, descartados, leídos y todos, con el estado de los dos
+- **💞 Nos lo quedamos**: cuando los dos elegís leer un libro, salta el match y entra en el reto
+- **Listas**: nos lo quedamos, leer, pasados, descartados, leídos y todos, con el estado de los dos
 - **Datos**: al arrancar con la base vacía se carga `seed/coffee_and_chapters.xlsx` (hojas *Criba* + *Lista*),
-  con el estado previo de la columna de cada uno (*Vicen* → `sento`, *Andrea* → `and`; la columna conjunta *¿Nos lo quedamos?* no se usa). El nivel 7 y el nº 112 (Inferno, ya dentro de La Divina Comedia) no se cargan.
+  con quién ha leído cada libro (columnas *Vicen* → `sento`, *Andrea* → `and`; «Leído» o «Releer»). Las decisiones se toman deslizando. El nivel 7 y el nº 112 (Inferno, ya dentro de La Divina Comedia) no se cargan.
   Desde **Importar** se puede subir una versión ampliada; lo que ya existe no se toca.
 
 ## Arrancar en local
