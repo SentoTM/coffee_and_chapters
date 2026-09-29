@@ -9,7 +9,6 @@
   let busy = false;
 
   const LABEL = { want: "♥ LEER", reject: "✕ DESCARTAR", skip: "⏭ PASAR" };
-  const OTHER = { want: "quiere leerlo", reject: "lo descarta", skip: "lo ha pasado" };
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
@@ -24,13 +23,6 @@
       <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">💞 ${s.match}</a></div>`;
   }
 
-  function otherLine(o) {
-    if (!o || (!o.decision && !o.read)) return "";
-    const parts = [];
-    if (o.decision) parts.push(OTHER[o.decision]);
-    if (o.read) parts.push("ya lo ha leído");
-    return `<p class="other ${o.decision || "read"}">${esc(cap(o.user))} ${parts.join(" · ")}</p>`;
-  }
 
   const SEASONS = {
     primavera: { icon: "🌷", label: "Lectura de primavera" },
@@ -56,8 +48,7 @@
       ${b.me.decision === "skip" ? `<p class="again">⏭ Lo pasaste antes</p>` : ""}
       ${b.blurb ? `<p class="blurb">${esc(b.blurb)}</p>` : ""}
       ${rows ? `<dl>${rows}</dl>` : ""}
-      ${why && !b.blurb ? `<p class="why">“${esc(why)}”</p>` : ""}
-      ${otherLine(b.other)}`;
+      ${why && !b.blurb ? `<p class="why">“${esc(why)}”</p>` : ""}`;
   }
 
   function syncRead() {

@@ -53,8 +53,6 @@ input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border
 .card dl { margin: 18px 0 0; width: 100%; display: grid; gap: 6px; text-align: left; }
 .kv { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 6px; }
 .kv dt { color: var(--muted); font-size: .85rem; } .kv dd { margin: 0; font-size: .9rem; text-align: right; }
-.other { margin-top: auto; padding-top: 14px; font-size: .85rem; font-weight: 600; }
-.other.want { color: var(--want); } .other.reject { color: var(--reject); } .other.read { color: var(--read); } .other.skip { color: var(--skip); }
 .gr { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
   background: var(--bg); border: 1px solid var(--line); color: var(--ink); font-weight: 700; text-decoration: none; }
 .gr:hover { background: var(--accent); color: #fff; }
@@ -122,7 +120,7 @@ main:has(.swipe) { padding-top: 10px; padding-bottom: 8px; }
 .blurb { margin: 10px 0 2px; font-size: .88rem; line-height: 1.4; color: var(--ink); text-align: left; }
 .why { margin: 10px 0 0; font-size: .85rem; font-style: italic; color: var(--muted); }
 .again { margin: 4px 0 0; font-size: .78rem; font-weight: 600; color: var(--skip); }
-.other { padding-top: 10px; }
+
 .season-chip { position: absolute; top: 16px; left: 16px; font-size: .75rem; font-weight: 600; padding: 4px 10px; border-radius: 999px;
   background: var(--surface); color: var(--tint-ink, var(--muted)); border: 1px solid var(--tint-line, var(--line)); }
 .season-primavera { --tint: #eaf4e4; --tint-ink: #4f8a3c; --tint-line: #cfe4c3; }
