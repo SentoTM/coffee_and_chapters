@@ -119,6 +119,7 @@ main:has(.swipe) { padding-top: 10px; padding-bottom: 8px; }
 .card dl { margin-top: 12px; gap: 0; }
 .kv { padding: 5px 0; }
 .kv dt, .kv dd { font-size: .85rem; }
+.blurb { margin: 10px 0 2px; font-size: .88rem; line-height: 1.4; color: var(--ink); text-align: left; }
 .why { margin: 10px 0 0; font-size: .85rem; font-style: italic; color: var(--muted); }
 .again { margin: 4px 0 0; font-size: .78rem; font-weight: 600; color: var(--skip); }
 .other { padding-top: 10px; }

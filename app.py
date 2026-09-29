@@ -22,6 +22,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(BASE_DIR, "data", "app.db"))
 SEED_FILE = os.environ.get("SEED_FILE", os.path.join(BASE_DIR, "seed", "coffee_and_chapters.xlsx"))
+BLURBS_FILE = os.path.join(BASE_DIR, "seed", "sinopsis.tsv")  # Nº <TAB> sinopsis breve
 DECISIONS = ("want", "reject", "skip")
 # Libros que no entran nunca: nivel 7 (descartables) y duplicados/solapados por Nº
 # (112 Inferno ya está dentro de 235 La Divina Comedia).
@@ -87,6 +88,7 @@ CREATE TABLE IF NOT EXISTS books (
     author   TEXT NOT NULL DEFAULT '',
     level    TEXT NOT NULL DEFAULT '',
     extra    TEXT NOT NULL DEFAULT '{}',
+    blurb    TEXT NOT NULL DEFAULT '',     -- sinopsis breve (seed/sinopsis.tsv)
     added    TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (original, author)
 );
@@ -141,7 +143,30 @@ def init_db():
         print(f"[seed] {res}")
     if version < 5:
         demo_vote(db)
+    sync_blurbs(db)
     db.close()
+
+
+def load_blurbs():
+    if not os.path.exists(BLURBS_FILE):
+        return {}
+    out = {}
+    with open(BLURBS_FILE, encoding="utf-8") as f:
+        for line in f:
+            n, _, text = line.rstrip("\n").partition("\t")
+            if n.strip() and text.strip():
+                out[n.strip()] = text.strip()
+    return out
+
+
+def sync_blurbs(db):
+    """Copia las sinopsis de seed/sinopsis.tsv a la base en cada arranque (también en bases ya cargadas)."""
+    cols = {r["name"] for r in db.execute("PRAGMA table_info(books)")}
+    if "blurb" not in cols:
+        db.execute("ALTER TABLE books ADD COLUMN blurb TEXT NOT NULL DEFAULT ''")
+    db.executemany("UPDATE books SET blurb = ? WHERE ext_id = ?",
+                   [(text, n) for n, text in load_blurbs().items()])
+    db.commit()
 
 
 def demo_vote(db):
@@ -331,6 +356,7 @@ def book_dict(row, votes, user):
         "author": row["author"],
         "level": row["level"],
         "season": season,
+        "blurb": row["blurb"] if "blurb" in row.keys() else "",
         "extra": {k: v for k, v in extra.items() if k not in HIDDEN_FIELDS},
         "goodreads": "https://www.goodreads.com/search?q=" + quote_plus(q),
         "me": v.get(user, empty),

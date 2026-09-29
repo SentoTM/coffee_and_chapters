@@ -54,8 +54,9 @@
       ${b.original ? `<p class="orig">${esc(b.original)}</p>` : ""}
       ${b.author ? `<p class="author">${esc(b.author)}</p>` : ""}
       ${b.me.decision === "skip" ? `<p class="again">⏭ Lo pasaste antes</p>` : ""}
+      ${b.blurb ? `<p class="blurb">${esc(b.blurb)}</p>` : ""}
       ${rows ? `<dl>${rows}</dl>` : ""}
-      ${why ? `<p class="why">“${esc(why)}”</p>` : ""}
+      ${why && !b.blurb ? `<p class="why">“${esc(why)}”</p>` : ""}
       ${otherLine(b.other)}`;
   }
 
