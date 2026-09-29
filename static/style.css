@@ -182,6 +182,8 @@ body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
 .toast.out { opacity: 0; transition: opacity .4s; }
 @media (prefers-reduced-motion: reduce) { .bit { display: none; } .match-box, .match-cups span { animation: none; } }
 .stamp { top: 64px; left: 20px; z-index: 3; background: var(--surface); }
+/* Al descartar la tarjeta se va a la izquierda: el sello va a la derecha para que se vea */
+.stamp.reject { left: auto; right: 20px; transform: rotate(12deg); }
 
 /* buscador en Descubrir */
 .finder { position: relative; width: 100%; max-width: 420px; }
