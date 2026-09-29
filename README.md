@@ -8,6 +8,7 @@ Flask + SQLite, desplegado en Railway.
 - Desliza **→** leer · **←** descartar · **↑** pasar (vuelve a salir cuando acabes los nuevos)
 - **Ya lo he leído** es una casilla aparte: *leído + leer* = releer
 - **?** busca el libro en Goodreads · **↶** deshace
+- **🔎 Buscador** en Descubrir para cargar un libro concreto como tarjeta (solo para los usuarios de `SEARCH_USERS`, por defecto `sento`). En **Listas → Todos** también se puede buscar y ver el estado de los dos.
 - **💞 Nos lo quedamos**: cuando los dos elegís leer un libro, salta el match y entra en el reto
 - **Listas**: nos lo quedamos, leer, pasados, descartados, leídos y todos, con el estado de los dos
 - **Datos**: al arrancar con la base vacía se carga `seed/coffee_and_chapters.xlsx` (hojas *Criba* + *Lista*),

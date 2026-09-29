@@ -182,3 +182,12 @@ body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
 .toast.out { opacity: 0; transition: opacity .4s; }
 @media (prefers-reduced-motion: reduce) { .bit { display: none; } .match-box, .match-cups span { animation: none; } }
 .stamp { top: 64px; left: 20px; z-index: 3; background: var(--surface); }
+
+/* buscador en Descubrir */
+.finder { position: relative; width: 100%; max-width: 420px; }
+.finder input { padding: 8px 12px; font-size: .9rem; border-radius: 999px; }
+.finder ul { position: absolute; z-index: 10; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); max-height: 50vh; overflow-y: auto; }
+.finder li { padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: .9rem; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.finder li:hover { background: var(--bg); }
+.finder li .st { margin-left: auto; color: var(--muted); }

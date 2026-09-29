@@ -2,6 +2,12 @@
 {% block content %}
 <section class="swipe">
   <div class="stats" id="stats"></div>
+  {% if can_search %}
+  <div class="finder" id="finder">
+    <input id="find-q" type="search" placeholder="🔎 Buscar un libro concreto…" autocomplete="off">
+    <ul id="find-res" hidden></ul>
+  </div>
+  {% endif %}
   <div class="deck" id="deck">
     <div class="empty" id="empty" hidden>
       <p>🎉 No quedan libros por decidir.</p>

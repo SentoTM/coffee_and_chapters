@@ -214,5 +214,35 @@
     else if (e.key === "?" && current) window.open(current.book.goodreads, "_blank", "noopener");
   });
 
+  // 🔎 Buscador (solo para quien lo tenga activado): carga el libro elegido como tarjeta
+  const findQ = document.getElementById("find-q");
+  const findRes = document.getElementById("find-res");
+  if (findQ) {
+    const STATE = { want: "♥", skip: "⏭", reject: "✕" };
+    let timer = null, results = [];
+    findQ.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const q = findQ.value.trim();
+        if (q.length < 2) { findRes.hidden = true; return; }
+        results = (await (await fetch("/api/search?q=" + encodeURIComponent(q))).json()).books;
+        findRes.innerHTML = results.length
+          ? results.map((b, i) => `<li data-i="${i}"><strong>${esc(b.title)}</strong> <span class="muted">${esc(b.author)}</span>
+              <span class="st">${b.me.decision ? STATE[b.me.decision] : ""}${b.me.read ? " ✓" : ""}</span></li>`).join("")
+          : `<li class="muted">Sin resultados</li>`;
+        findRes.hidden = false;
+      }, 200);
+    });
+    findRes.addEventListener("click", (e) => {
+      const li = e.target.closest("li[data-i]"); if (!li) return;
+      show(results[+li.dataset.i]);
+      findQ.value = ""; findRes.hidden = true; findQ.blur();
+    });
+    findQ.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { findQ.value = ""; findRes.hidden = true; findQ.blur(); }
+      if (e.key === "Enter" && results[0] && !findRes.hidden) { show(results[0]); findQ.value = ""; findRes.hidden = true; findQ.blur(); }
+    });
+  }
+
   loadNext();
 })();

@@ -27,7 +27,7 @@ DECISIONS = ("want", "reject", "skip")
 # (112 Inferno ya está dentro de 235 La Divina Comedia).
 EXCLUDED_LEVEL_PREFIX = "7"
 EXCLUDED_IDS = {x.strip() for x in os.environ.get("EXCLUDED_IDS", "112").split(",") if x.strip()}
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-cambia-esto")
@@ -49,6 +49,8 @@ def load_users():
 
 
 USERS = load_users()
+# Quién ve el buscador en Descubrir
+SEARCH_USERS = {u.strip().lower() for u in os.environ.get("SEARCH_USERS", "sento").split(",") if u.strip()}
 
 # Columnas del Excel con el estado previo de cada persona → usuario de la app
 # IMPORT_USER_COLUMNS="Vicen:sento,Andrea:and"
@@ -137,7 +139,20 @@ def init_db():
         with open(SEED_FILE, "rb") as f:
             res = import_books(db, os.path.basename(SEED_FILE), f.read())
         print(f"[seed] {res}")
+    if version < 5:
+        demo_vote(db)
     db.close()
+
+
+def demo_vote(db):
+    """Una sola vez: And marca 'leer' Ana Karenina (nº 22) para poder probar el match."""
+    row = db.execute("SELECT id FROM books WHERE ext_id = '22'").fetchone()
+    if not row or "and" not in USERS:
+        return
+    db.execute("INSERT OR IGNORE INTO votes (username, book_id) VALUES ('and', ?)", (row["id"],))
+    db.execute("""UPDATE votes SET decision = 'want', updated = datetime('now')
+                  WHERE username = 'and' AND book_id = ? AND decision IS NULL""", (row["id"],))
+    db.commit()
 
 
 def migrate_to_v4(db):
@@ -363,7 +378,7 @@ def logout():
 @app.route("/")
 @login_required
 def swipe():
-    return render_template("swipe.html", user=session["user"])
+    return render_template("swipe.html", user=session["user"], can_search=session["user"] in SEARCH_USERS)
 
 
 @app.route("/listas")
@@ -421,6 +436,23 @@ def api_next():
         row = db.execute("SELECT * FROM books WHERE id=?", (book_id,)).fetchone()
         book = book_dict(row, votes_for(db, [book_id]), user)
     return jsonify(book=book, stats=stats(db, user))
+
+
+@app.route("/api/search")
+@login_required
+def api_search():
+    """Busca por título, título original o autor (máx. 8)."""
+    if session["user"] not in SEARCH_USERS:
+        abort(403)
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify(books=[])
+    like = f"%{q}%"
+    rows = get_db().execute(
+        """SELECT * FROM books WHERE title LIKE ? OR original LIKE ? OR author LIKE ?
+           ORDER BY title LIMIT 8""", (like, like, like)).fetchall()
+    votes = votes_for(get_db(), [r["id"] for r in rows])
+    return jsonify(books=[book_dict(r, votes, session["user"]) for r in rows])
 
 
 def upsert_vote(db, user, book_id, **fields):
