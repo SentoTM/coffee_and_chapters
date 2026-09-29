@@ -706,7 +706,7 @@ def export_xlsx():
         for u in users:
             per += [DECISION_ES[v.get(u, {}).get("decision")], "Sí" if v.get(u, {}).get("read") else ""]
         ds = {v.get(u, {}).get("decision") for u in users}
-        same = "🤜🤛 Los dos quieren" if ds == {"want"} else "🗑️ Los dos lo descartan" if ds == {"reject"} else ""
+        same = "💞 Los dos quieren" if ds == {"want"} else "🗑️ Los dos lo descartan" if ds == {"reject"} else ""
         ws2.append(base(r) + per + [same])
 
     for sheet in (ws, ws2):

@@ -20,7 +20,7 @@
     const pct = s.total ? Math.round((done / s.total) * 100) : 0;
     statsEl.innerHTML = `
       <div class="bar"><span style="width:${pct}%"></span></div>
-      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">🤜🤛 ${s.match}</a></div>`;
+      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">💞 ${s.match}</a></div>`;
   }
 
 
