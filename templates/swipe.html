@@ -4,18 +4,18 @@
   <div class="stats" id="stats"></div>
   <div class="deck" id="deck">
     <div class="empty" id="empty" hidden>
-      <p>🎉 No quedan libros por revisar.</p>
+      <p>🎉 No quedan libros por decidir.</p>
       <a class="btn" href="{{ url_for('lists') }}">Ver listas</a>
     </div>
   </div>
   <div class="actions">
     <button class="act undo" id="b-undo" title="Deshacer (Retroceso)" disabled>↶</button>
-    <button class="act reject" id="b-reject" title="No me interesa (←)">✕</button>
-    <button class="act skip" id="b-skip" title="Pasar, lo decido luego (↑)">⏭</button>
-    <button class="act want" id="b-want" title="¡Quiero leerlo! (→)">♥</button>
-    <button class="act read" id="b-read" title="Ya lo he leído (L)">✓</button>
+    <button class="act reject" id="b-reject" title="Descartar (←)">✕</button>
+    <button class="act skip" id="b-skip" title="Pasar, vuelve a salir más tarde (↑)">⏭</button>
+    <button class="act want" id="b-want" title="Leer (→)">♥</button>
   </div>
-  <p class="hint muted small">Desliza ← no · → sí · ↑ pasar — o usa las flechas del teclado</p>
+  <button class="readtoggle" id="b-read" aria-pressed="false"><span class="box"></span> Ya lo he leído</button>
+  <p class="hint muted small">← descartar · → leer · ↑ pasar · L leído · ? Goodreads</p>
 </section>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='swipe.js') }}"></script>{% endblock %}

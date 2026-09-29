@@ -5,10 +5,13 @@ Flask + SQLite, desplegado en Railway.
 
 ## Qué hace
 
-- Desliza **→** quiero leerlo · **←** descartar · **↑** pasar (vuelve a salir al final)
-- **✓** ya leído · **?** buscar en Goodreads · **↶** deshacer
-- **Listas**: coincidencias (los dos lo queremos), quiero leer, leídos, pasados, rechazados
-- **Importar**: sube la lista en `.xlsx` o `.csv` (columnas *Título* y *Autor*; el resto se muestra en la tarjeta)
+- Desliza **→** leer · **←** descartar · **↑** pasar (vuelve a salir cuando acabes los nuevos)
+- **Ya lo he leído** es una casilla aparte: *leído + leer* = releer
+- **?** busca el libro en Goodreads · **↶** deshace
+- **Listas**: coincidencias (los dos queréis leerlo), leer, pasados, descartados, leídos y todos, con el estado de los dos
+- **Datos**: al arrancar con la base vacía se carga `seed/coffee_and_chapters.xlsx` (hojas *Criba* + *Lista*),
+  con los estados previos de las columnas *Vicen* → `sento` y *Andrea* → `and`. El nivel 7 y el nº 112 (Inferno, ya dentro de La Divina Comedia) no se cargan.
+  Desde **Importar** se puede subir una versión ampliada; lo que ya existe no se toca.
 
 ## Arrancar en local
 
@@ -18,7 +21,7 @@ cd coffee_and_chapters
 python -m venv .venv
 .venv\Scripts\activate            # Linux/Mac: source .venv/bin/activate
 pip install -r requirements.txt
-$env:APP_USERS="vicente:1234,ana:1234"   # PowerShell (Linux/Mac: export APP_USERS=...)
+$env:APP_USERS="sento:1234,and:1234"   # PowerShell (Linux/Mac: export APP_USERS=...)
 python app.py                     # http://localhost:5000
 ```
 
@@ -30,7 +33,7 @@ python app.py                     # http://localhost:5000
 
    | Variable | Valor |
    |---|---|
-   | `APP_USERS` | `vicente:clave,ana:clave` |
+   | `APP_USERS` | `sento:clave,and:clave` |
    | `SECRET_KEY` | cadena larga aleatoria |
    | `DATABASE_PATH` | `/data/app.db` |
 
@@ -42,4 +45,5 @@ python app.py                     # http://localhost:5000
 app.py          rutas, login, importación y API
 templates/      páginas HTML
 static/         CSS y JS del swipe
+seed/           Excel inicial del reto
 ```

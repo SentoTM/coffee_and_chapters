@@ -3,49 +3,69 @@
   const empty = document.getElementById("empty");
   const statsEl = document.getElementById("stats");
   const undoBtn = document.getElementById("b-undo");
-  const history = [];
-  let current = null;   // {book, el}
+  const readBtn = document.getElementById("b-read");
+  const history = []; // [{book, prev}]
+  let current = null; // {book, el}
   let busy = false;
 
-  const LABEL = { want: "♥ QUIERO", reject: "✕ PASO", skip: "⏭ LUEGO", read: "✓ LEÍDO" };
-  const OTHER = { want: "lo quiere leer", reject: "lo ha descartado", read: "ya lo ha leído", skip: "lo ha dejado para luego" };
+  const LABEL = { want: "♥ LEER", reject: "✕ DESCARTAR", skip: "⏭ PASAR" };
+  const OTHER = { want: "quiere leerlo", reject: "lo descarta", skip: "lo ha pasado" };
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
 
   function renderStats(s) {
     if (!s) return;
-    const done = s.total - s.pending - s.skip;
+    const done = s.want + s.reject;
     const pct = s.total ? Math.round((done / s.total) * 100) : 0;
     statsEl.innerHTML = `
       <div class="bar"><span style="width:${pct}%"></span></div>
-      <div class="nums"><span>${s.pending} por ver</span><span>♥ ${s.want}</span><span>✓ ${s.read}</span><span>⏭ ${s.skip}</span><span>✕ ${s.reject}</span></div>`;
+      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read} leídos</span></div>`;
+  }
+
+  function otherLine(o) {
+    if (!o || (!o.decision && !o.read)) return "";
+    const parts = [];
+    if (o.decision) parts.push(OTHER[o.decision]);
+    if (o.read) parts.push("ya lo ha leído");
+    return `<p class="other ${o.decision || "read"}">${esc(o.user)} ${parts.join(" · ")}</p>`;
   }
 
   function cardHTML(b) {
     const extra = Object.entries(b.extra || {})
       .map(([k, v]) => `<div class="kv"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
-    const other = b.other && b.other.status
-      ? `<p class="other ${b.other.status}">${esc(b.other.user)} ${OTHER[b.other.status]}</p>` : "";
     return `
-      <a class="gr" href="${esc(b.goodreads)}" target="_blank" rel="noopener" title="Buscar en Goodreads">?</a>
+      <a class="gr" href="${esc(b.goodreads)}" target="_blank" rel="noopener" title="Buscar en Goodreads (?)">?</a>
+      ${b.me.decision === "skip" ? `<span class="again">Lo pasaste antes</span>` : ""}
       <div class="stamp"></div>
       <div class="cover">📖</div>
       <h2>${esc(b.title)}</h2>
+      ${b.original ? `<p class="orig">${esc(b.original)}</p>` : ""}
       ${b.author ? `<p class="author">${esc(b.author)}</p>` : ""}
       ${extra ? `<dl>${extra}</dl>` : ""}
-      ${other}`;
+      ${otherLine(b.other)}`;
+  }
+
+  function syncRead() {
+    const on = !!(current && current.book.me.read);
+    readBtn.classList.toggle("on", on);
+    readBtn.setAttribute("aria-pressed", on);
+    readBtn.title = on ? "Marcado como leído (L para quitar)" : "Marcar como leído (L)";
+    if (current) current.el.classList.toggle("is-read", on);
   }
 
   function show(book) {
     deck.querySelectorAll(".card").forEach((c) => c.remove());
-    if (!book) { current = null; empty.hidden = false; return; }
+    if (!book) { current = null; empty.hidden = false; readBtn.disabled = true; syncRead(); return; }
     empty.hidden = true;
+    readBtn.disabled = false;
     const el = document.createElement("article");
     el.className = "card enter";
     el.innerHTML = cardHTML(book);
     deck.appendChild(el);
     requestAnimationFrame(() => el.classList.remove("enter"));
     current = { book, el };
+    syncRead();
     attachDrag(el);
   }
 
@@ -57,32 +77,42 @@
     show(d.book);
   }
 
-  async function vote(status) {
+  async function decide(decision) {
     if (!current || busy) return;
     busy = true;
     const { book, el } = current;
-    const dir = { want: [1, 0], reject: [-1, 0], skip: [0, -1], read: [0, 1] }[status];
+    const dir = { want: [1, 0], reject: [-1, 0], skip: [0, -1] }[decision];
+    const stamp = el.querySelector(".stamp");
+    stamp.textContent = LABEL[decision];
+    stamp.className = "stamp show " + decision;
     el.classList.add("fly");
-    el.querySelector(".stamp").textContent = LABEL[status];
-    el.querySelector(".stamp").className = "stamp show " + status;
     el.style.transform = `translate(${dir[0] * 140}vw, ${dir[1] * 120}vh) rotate(${dir[0] * 30}deg)`;
     el.style.opacity = 0;
     try {
-      await fetch("/api/vote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_id: book.id, status }) });
-      history.push(book);
+      await post("/api/vote", { book_id: book.id, decision });
+      history.push({ book, prev: book.me.decision });
       undoBtn.disabled = false;
       await new Promise((res) => setTimeout(res, 220));
-      await loadNext(status === "skip" ? book.id : "");
+      await loadNext(decision === "skip" ? book.id : "");
     } finally { busy = false; }
+  }
+
+  async function toggleRead() {
+    if (!current || busy) return;
+    const b = current.book;
+    b.me.read = !b.me.read;
+    syncRead();
+    const d = await post("/api/read", { book_id: b.id, read: b.me.read });
+    renderStats(d.stats);
   }
 
   async function undo() {
     if (busy || !history.length) return;
     busy = true;
-    const book = history.pop();
+    const { book, prev } = history.pop();
     try {
-      const r = await fetch("/api/vote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_id: book.id, status: null }) });
-      const d = await r.json();
+      const d = await post("/api/vote", { book_id: book.id, decision: prev });
+      book.me.decision = prev;
       renderStats(d.stats);
       show(book);
     } finally { busy = false; undoBtn.disabled = !history.length; }
@@ -114,14 +144,14 @@
       el.classList.remove("drag");
       stamp.style.opacity = "";
       const s = pick(dx, dy, 110);
-      if (s) vote(s);
+      if (s) decide(s);
       else { el.style.transform = ""; stamp.className = "stamp"; }
     };
     el.addEventListener("pointerup", end);
     el.addEventListener("pointercancel", end);
   }
 
-  // → quiero · ← rechazo · ↑ pasar (↓ no hace nada: "leído" va por botón)
+  // → leer · ← descartar · ↑ pasar
   function pick(dx, dy, th) {
     if (Math.abs(dx) >= Math.abs(dy)) {
       if (dx > th) return "want";
@@ -130,16 +160,17 @@
     return null;
   }
 
-  document.getElementById("b-want").onclick = () => vote("want");
-  document.getElementById("b-reject").onclick = () => vote("reject");
-  document.getElementById("b-skip").onclick = () => vote("skip");
-  document.getElementById("b-read").onclick = () => vote("read");
+  document.getElementById("b-want").onclick = () => decide("want");
+  document.getElementById("b-reject").onclick = () => decide("reject");
+  document.getElementById("b-skip").onclick = () => decide("skip");
+  readBtn.onclick = toggleRead;
   undoBtn.onclick = undo;
 
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input,textarea")) return;
-    const k = { ArrowRight: "want", ArrowLeft: "reject", ArrowUp: "skip", l: "read", L: "read" }[e.key];
-    if (k) { e.preventDefault(); vote(k); }
+    const k = { ArrowRight: "want", ArrowLeft: "reject", ArrowUp: "skip" }[e.key];
+    if (k) { e.preventDefault(); decide(k); }
+    else if (e.key === "l" || e.key === "L") { e.preventDefault(); toggleRead(); }
     else if (e.key === "Backspace" || (e.key === "z" && (e.ctrlKey || e.metaKey))) { e.preventDefault(); undo(); }
     else if (e.key === "?" && current) window.open(current.book.goodreads, "_blank", "noopener");
   });

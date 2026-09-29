@@ -85,3 +85,25 @@ input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border
 .ops { display: flex; gap: 4px; flex-shrink: 0; }
 .mini { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; display: grid; place-items: center; text-decoration: none; font: inherit; font-size: .9rem; font-weight: 700; }
 .mini.want { color: var(--want); } .mini.reject { color: var(--reject); } .mini.skip { color: var(--skip); } .mini.read { color: var(--read); }
+
+/* ---------- v2: leído aparte, chips ---------- */
+.orig { margin: 0 0 2px; font-style: italic; color: var(--muted); font-size: .9rem; }
+.again { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: .75rem; color: var(--skip); font-weight: 600; }
+.card.is-read { border-color: var(--read); box-shadow: 0 0 0 2px var(--read), var(--shadow); }
+.card.is-read .cover::after { content: " ✓"; color: var(--read); font-size: 32px; vertical-align: top; }
+.readtoggle { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: .95rem; padding: 8px 16px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.readtoggle .box { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--read); display: grid; place-items: center; font-size: 12px; color: #fff; }
+.readtoggle.on { color: var(--read); border-color: var(--read); font-weight: 600; }
+.readtoggle.on .box { background: var(--read); }
+.readtoggle.on .box::after { content: "✓"; }
+.readtoggle:disabled { opacity: .4; cursor: default; }
+.c-want { color: var(--want); } .c-reject { color: var(--reject); } .c-skip { color: var(--skip); } .c-read { color: var(--read); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.chip { font-size: .78rem; padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); }
+.chip b { font-weight: 600; margin-right: 2px; }
+.mini.on { color: #fff; border-color: transparent; }
+.mini.want.on { background: var(--want); } .mini.skip.on { background: var(--skip); } .mini.reject.on { background: var(--reject); } .mini.read.on { background: var(--read); }
+.filters { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; }
+.filters .search { margin: 0; flex: 1; }
+@media (max-width: 560px) { .booklist li { flex-direction: column; align-items: stretch; } .ops { justify-content: flex-end; } }
