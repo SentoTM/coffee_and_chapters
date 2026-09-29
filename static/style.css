@@ -215,3 +215,23 @@ body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
 .done-box summary h2::before { content: "▸ "; color: var(--muted); }
 .done-box[open] summary h2::before { content: "▾ "; }
 .tabs button.on .muted { color: rgba(255,255,255,.8); }
+
+/* ---------- marca: wordmark con serif ---------- */
+.wordmark { font-family: "Fraunces", Georgia, "Times New Roman", serif; font-weight: 600; letter-spacing: -.01em; font-optical-sizing: auto; }
+.wordmark em { font-style: italic; font-weight: 500; color: var(--accent); padding: 0 .04em; }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.brand-cup { font-size: 1.25rem; }
+.brand .wordmark { font-size: 1.15rem; }
+.hero { text-align: center; margin-bottom: 6px; }
+.hero .wordmark { font-size: clamp(2rem, 9vw, 2.6rem); line-height: 1.05; margin: 6px 0 8px; }
+.tagline { margin: 0; color: var(--muted); font-style: italic; font-family: "Fraunces", Georgia, serif; }
+.mug { position: relative; display: inline-block; font-size: 56px; line-height: 1; padding-top: 26px; }
+.steam { position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; gap: 7px; }
+.steam i { display: block; width: 4px; height: 22px; border-radius: 4px; background: var(--muted); opacity: 0;
+  animation: steam 2.4s ease-in-out infinite; }
+.steam i:nth-child(2) { animation-delay: .5s; height: 26px; }
+.steam i:nth-child(3) { animation-delay: 1s; }
+@keyframes steam { 0% { transform: translateY(10px) scaleY(.6); opacity: 0; } 40% { opacity: .45; }
+  100% { transform: translateY(-14px) scaleY(1.1) skewX(-12deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .steam i { animation: none; opacity: .3; } }
+@media (max-width: 480px) { .brand .brand-name { display: none; } }
