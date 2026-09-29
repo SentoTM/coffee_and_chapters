@@ -70,7 +70,7 @@
       const decision = b.classList.contains("on") ? null : b.dataset.s;
       const d = await (await post("/api/vote", { book_id: id, decision })).json();
       book.me.decision = decision;
-      if (d.match) toast(`💞 ¡Nos lo quedamos! ${book.title}`);
+      if (d.match) toast(`🤜🤛 ¡Nos lo quedamos! ${book.title}`);
     } else if (b.dataset.read) {
       const read = b.dataset.read === "1";
       await post("/api/read", { book_id: id, read });

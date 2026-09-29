@@ -3,22 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>{% block title %}Coffee & Chapters{% endblock %}</title>
-  <meta name="description" content="Dos lectores, un reto de lectura y demasiado café.">
-  <meta property="og:title" content="☕ Coffee & Chapters">
-  <meta property="og:description" content="Dos lectores, un reto de lectura y demasiado café.">
+  <title>{% block title %}Stars Hollow Book Club{% endblock %}</title>
+  <meta name="description" content="Dos socios, trescientos libros.">
+  <meta property="og:title" content="☕ Stars Hollow Book Club">
+  <meta property="og:description" content="Dos socios, trescientos libros.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#8a5a3c">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+  <!-- La fuente se carga sin bloquear la página: si Google Fonts tarda o falla, la app sigue igual -->
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   {% if user %}
   <header class="topbar">
-    <a class="brand" href="{{ url_for('swipe') }}"><span class="brand-cup">☕</span><span class="brand-name wordmark">Coffee <em>&amp;</em> Chapters</span></a>
+    <a class="brand" href="{{ url_for('swipe') }}"><span class="brand-cup">☕</span><span class="brand-name wordmark">Stars Hollow <em>Book Club</em></span></a>
     <nav>
       <a href="{{ url_for('swipe') }}" class="{{ 'on' if request.endpoint=='swipe' }}">Descubrir</a>
       <a href="{{ url_for('lists') }}" class="{{ 'on' if request.endpoint=='lists' }}">Listas</a>

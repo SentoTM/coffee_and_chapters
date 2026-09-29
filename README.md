@@ -1,4 +1,6 @@
-# ☕ Coffee & Chapters
+# ☕ Stars Hollow Book Club
+
+*Dos socios, trescientos libros.* (Repo: `coffee_and_chapters`.)
 
 "Tinder" de libros para elegir entre dos qué leemos en el reto.
 Flask + SQLite, desplegado en Railway.
@@ -9,7 +11,7 @@ Flask + SQLite, desplegado en Railway.
 - **Ya lo he leído** es una casilla aparte: *leído + leer* = releer
 - **?** busca el libro en Goodreads · **↶** deshace
 - **🔎 Buscador** en Descubrir para cargar un libro concreto como tarjeta (solo para los usuarios de `SEARCH_USERS`, por defecto `sento`). En **Listas → Todos** también se puede buscar y ver el estado de los dos.
-- **💞 Nos lo quedamos**: cuando los dos elegís leer un libro, salta el match y entra en el reto
+- **🤜🤛 Nos lo quedamos**: cuando los dos elegís leer un libro, salta el match y entra en el reto
 - **Listas**: nos lo quedamos, leer, pasados, descartados, leídos y todos, con el estado de los dos
 - **📚 Reto**: de entre los que os quedáis, elegís qué leer **por turnos** (le toca a quien no eligió la última).
   Filtro por estación (arranca en la actual) y "solo los que no ha leído ninguno"; **🎲 Sorpréndenos** saca uno al azar.

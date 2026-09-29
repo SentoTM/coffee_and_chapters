@@ -160,13 +160,13 @@ body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
 }
 
 /* ---------- match ---------- */
-.c-match { color: #d4507a; text-decoration: none; font-weight: 600; }
+.c-match { color: var(--accent); text-decoration: none; font-weight: 600; white-space: nowrap; }
 .match-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: hidden;
   background: rgba(43, 33, 27, .55); backdrop-filter: blur(3px); animation: fadein .25s ease; }
 .match-overlay.out { opacity: 0; transition: opacity .3s; }
 .match-box { position: relative; z-index: 2; background: var(--surface); border-radius: 24px; padding: 26px 28px 22px; text-align: center;
   width: min(86vw, 340px); box-shadow: 0 20px 60px rgba(0,0,0,.35); animation: pop .5s cubic-bezier(.2, 1.6, .4, 1); }
-.match-box h3 { margin: 6px 0 8px; font-size: 1.6rem; color: #d4507a; }
+.match-box h3 { margin: 6px 0 8px; font-size: 1.6rem; color: var(--accent); }
 .match-box p { margin: 4px 0; }
 .match-box .btn { margin-top: 14px; }
 .match-cups { font-size: 44px; letter-spacing: -6px; }
@@ -179,7 +179,7 @@ body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; background: var(--ink); color: var(--bg);
   padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: .9rem; box-shadow: var(--shadow); animation: pop .4s ease; max-width: 90vw; text-align: center; }
 .toast.out { opacity: 0; transition: opacity .4s; }
-@media (prefers-reduced-motion: reduce) { .bit { display: none; } .match-box, .match-cups span { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bit { display: none; } .match-box, .match-cups span, .bump .fist, .bump .boom { animation: none; } .bump .boom { opacity: 1; } }
 .stamp { top: 64px; left: 20px; z-index: 3; background: var(--surface); }
 /* Al descartar la tarjeta se va a la izquierda: el sello va a la derecha para que se vea */
 .stamp.reject { left: auto; right: 20px; transform: rotate(12deg); }
@@ -235,3 +235,14 @@ body:has(.swipe) main { flex: 1; min-height: 0; width: 100%; }
   100% { transform: translateY(-14px) scaleY(1.1) skewX(-12deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .steam i { animation: none; opacity: .3; } }
 @media (max-width: 480px) { .brand .brand-name { display: none; } }
+
+/* match: choque de puños */
+.bump { display: flex; justify-content: center; align-items: center; height: 64px; font-size: 46px; }
+.bump .fist { display: inline-block; animation-duration: .55s; animation-timing-function: cubic-bezier(.5, 0, .7, 1.4); animation-fill-mode: both; animation-delay: .15s; }
+.bump .fist.l { animation-name: bump-l; }
+.bump .fist.r { animation-name: bump-r; }
+.bump .boom { display: inline-block; font-size: 34px; margin: 0 -6px; opacity: 0; animation: boom .5s ease-out .6s both; }
+@keyframes bump-l { 0% { transform: translateX(-70px); opacity: 0; } 70% { transform: translateX(6px); opacity: 1; } 100% { transform: translateX(0); } }
+@keyframes bump-r { 0% { transform: translateX(70px); opacity: 0; } 70% { transform: translateX(-6px); opacity: 1; } 100% { transform: translateX(0); } }
+@keyframes boom { 0% { transform: scale(.2); opacity: 0; } 50% { transform: scale(1.4); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.wordmark em { white-space: nowrap; }

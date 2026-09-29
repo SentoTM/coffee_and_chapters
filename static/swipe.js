@@ -20,7 +20,7 @@
     const pct = s.total ? Math.round((done / s.total) * 100) : 0;
     statsEl.innerHTML = `
       <div class="bar"><span style="width:${pct}%"></span></div>
-      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">💞 ${s.match}</a></div>`;
+      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">🤜🤛 ${s.match}</a></div>`;
   }
 
 
@@ -103,19 +103,19 @@
     } finally { busy = false; }
   }
 
-  // 💞 Efecto de match: los dos queréis leerlo → "Nos lo quedamos"
+  // 🤜💥🤛 Efecto de match: los dos queréis leerlo → "Nos lo quedamos"
   function showMatch(book) {
     const other = cap(book.other && book.other.user);
     const ov = document.createElement("div");
     ov.className = "match-overlay";
-    const bits = ["💞", "☕", "📚", "💕", "✨", "📖", "🍂"];
+    const bits = ["🤜", "🤛", "☕", "📚", "💥", "✨", "📖", "🍂"];
     const confetti = Array.from({ length: 26 }, (_, i) => {
       const x = Math.random() * 100, d = 1.6 + Math.random() * 1.6, delay = Math.random() * 0.6, size = 18 + Math.random() * 22;
       return `<span class="bit" style="left:${x}%;font-size:${size}px;animation-duration:${d}s;animation-delay:${delay}s">${bits[i % bits.length]}</span>`;
     }).join("");
     ov.innerHTML = `${confetti}
       <div class="match-box">
-        <div class="match-cups">☕<span>💞</span>☕</div>
+        <div class="bump" aria-hidden="true"><span class="fist l">🤜</span><span class="boom">💥</span><span class="fist r">🤛</span></div>
         <h3>¡Nos lo quedamos!</h3>
         <p><strong>${esc(book.title)}</strong></p>
         <p class="muted">Tú y ${esc(other)} queréis leerlo</p>
