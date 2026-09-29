@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>{% block title %}Coffee & Chapters{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  {% if user %}
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('swipe') }}">☕ Coffee &amp; Chapters</a>
+    <nav>
+      <a href="{{ url_for('swipe') }}" class="{{ 'on' if request.endpoint=='swipe' }}">Descubrir</a>
+      <a href="{{ url_for('lists') }}" class="{{ 'on' if request.endpoint=='lists' }}">Listas</a>
+      <a href="{{ url_for('import_view') }}" class="{{ 'on' if request.endpoint=='import_view' }}">Importar</a>
+      <a href="{{ url_for('logout') }}" title="Cerrar sesión">Salir ({{ user }})</a>
+    </nav>
+  </header>
+  {% endif %}
+  {% with msgs = get_flashed_messages() %}
+    {% if msgs %}<div class="flash">{% for m in msgs %}<p>{{ m }}</p>{% endfor %}</div>{% endif %}
+  {% endwith %}
+  <main>{% block content %}{% endblock %}</main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

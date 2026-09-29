@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel wide">
+  <div class="tabs" id="tabs">
+    <button data-k="match" class="on">💞 Coincidencias</button>
+    <button data-k="want">♥ Quiero leer</button>
+    <button data-k="read">✓ Leídos</button>
+    <button data-k="skip">⏭ Pasados</button>
+    <button data-k="reject">✕ Rechazados</button>
+  </div>
+  <p class="muted small" id="desc"></p>
+  <input class="search" id="q" placeholder="Buscar por título o autor…">
+  <ul class="booklist" id="list"></ul>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='lists.js') }}"></script>{% endblock %}

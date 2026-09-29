@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<form class="panel login" method="post">
+  <h1>☕ Coffee &amp; Chapters</h1>
+  <p class="muted">Elige los libros del reto</p>
+  <label>Usuario <input name="user" autocomplete="username" required autofocus></label>
+  <label>Contraseña <input name="password" type="password" autocomplete="current-password" required></label>
+  <button class="btn primary" type="submit">Entrar</button>
+</form>
+{% endblock %}

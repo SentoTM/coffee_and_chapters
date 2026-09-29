@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1>Importar lista</h1>
+  <p class="muted">Ahora mismo hay <strong>{{ total }}</strong> libros cargados.</p>
+  <form method="post" enctype="multipart/form-data" class="import">
+    <input type="file" name="file" accept=".xlsx,.xlsm,.csv" required>
+    <button class="btn primary" type="submit">Subir</button>
+  </form>
+  <p class="muted small">
+    Excel (.xlsx) o CSV con cabecera en la primera fila. Se detectan las columnas
+    <em>Título</em> y <em>Autor</em>; el resto (género, páginas, año…) se muestra en la tarjeta.
+    Los libros repetidos (mismo título y autor) se ignoran, así que puedes volver a subir la lista ampliada.
+  </p>
+</section>
+{% endblock %}
