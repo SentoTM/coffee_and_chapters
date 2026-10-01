@@ -3,6 +3,7 @@
 <section class="panel wide">
   <div class="tabs" id="tabs">
     <button data-k="match" class="on">💞 Nos lo quedamos</button>
+    {% if many %}<button data-k="almost">💕 Casi</button>{% endif %}
     <button data-k="want">♥ Leer</button>
     <button data-k="skip">⏭ Pasados</button>
     <button data-k="reject">✕ Descartados</button>
@@ -15,7 +16,7 @@
     <span class="muted small" id="count"></span>
     {% if can_search %}<a class="btn small" href="{{ url_for('export_xlsx') }}" title="Descargar todo en Excel">⬇️ Excel</a>{% endif %}
   </div>
-  <ul class="booklist" id="list" data-me="{{ user }}" data-other="{{ other or '' }}"></ul>
+  <ul class="booklist" id="list" data-me="{{ user }}" data-others="{{ others | join(',') }}"></ul>
 </section>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='lists.js') }}"></script>{% endblock %}

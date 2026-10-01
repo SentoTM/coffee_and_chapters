@@ -4,17 +4,20 @@
   const count = document.getElementById("count");
   const q = document.getElementById("q");
   const tabs = document.getElementById("tabs");
-  const OTHER = list.dataset.other.replace(/^./, (c) => c.toUpperCase());
+  const cap = (s) => String(s || "").replace(/^./, (c) => c.toUpperCase());
+  const OTHERS = (list.dataset.others || "").split(",").filter(Boolean);
+  const names = (l) => { const n = l.map(cap); return n.length <= 1 ? n.join("") : n.slice(0, -1).join(", ") + " y " + n[n.length - 1]; };
   let kind = "match";
   let books = [];
 
   const DESC = {
-    match: "Los que queréis leer los dos: estos son los que entran en el reto.",
+    match: OTHERS.length > 1 ? "Los que queréis leer todos: estos son los que entran en el reto." : "Los que queréis leer los dos: estos son los que entran en el reto.",
+    almost: "Los que quieren leer al menos dos: falta el voto del resto para que entren en el reto.",
     want: "Los que has marcado para leer. «Releer» = ya lo habías leído y quieres volver a él.",
     skip: "Los que dejaste para más tarde. Vuelven a salir al acabar con los nuevos.",
     reject: "Los que has descartado.",
     read: "Los que ya has leído, con lo que has decidido sobre releerlos.",
-    all: "Todos los libros, con el estado de los dos.",
+    all: OTHERS.length > 1 ? "Todos los libros, con el estado de cada uno." : "Todos los libros, con el estado de los dos.",
   };
   const ICON = { want: "♥", skip: "⏭", reject: "✕" };
   const WORD = { want: "leer", skip: "pasado", reject: "descartado" };
@@ -39,7 +42,7 @@
         <div class="info">
           <strong>${esc(b.title)}</strong>
           <span class="muted">${esc(b.author)}${b.level ? ` · ${esc(b.level)}` : ""}</span>
-          <span class="chips">${chip("Tú", b.me)}${OTHER ? chip(OTHER, b.other) : ""}</span>
+          <span class="chips">${chip("Tú", b.me)}${(b.others || []).map((o) => chip(cap(o.user), o)).join("")}</span>
         </div>
         <div class="ops">
           <a class="mini" href="${esc(b.goodreads)}" target="_blank" rel="noopener" title="Goodreads">?</a>
@@ -70,7 +73,8 @@
       const decision = b.classList.contains("on") ? null : b.dataset.s;
       const d = await (await post("/api/vote", { book_id: id, decision })).json();
       book.me.decision = decision;
-      if (d.match) toast(`🤜🤛 ¡Nos lo quedamos! ${book.title}`);
+      if (d.match === "full") toast(`🤜🤛 ¡Nos lo quedamos! ${book.title}`);
+      else if (d.match === "partial") toast(`💕 Casi: con ${names(d.with_users)} · falta ${names(d.missing)}`);
     } else if (b.dataset.read) {
       const read = b.dataset.read === "1";
       await post("/api/read", { book_id: id, read });

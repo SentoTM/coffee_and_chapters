@@ -20,9 +20,14 @@
     const pct = s.total ? Math.round((done / s.total) * 100) : 0;
     statsEl.innerHTML = `
       <div class="bar"><span style="width:${pct}%"></span></div>
-      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">💞 ${s.match}</a></div>`;
+      <div class="nums"><span>${s.pending} por decidir</span><span class="c-want">♥ ${s.want}</span><span class="c-skip">⏭ ${s.skip}</span><span class="c-reject">✕ ${s.reject}</span><span class="c-read">✓ ${s.read}</span><a class="c-match" href="/listas">💞 ${s.match}</a>${s.almost ? `<span class="c-almost" title="Casi: lo quieren al menos dos">💕 ${s.almost}</span>` : ""}</div>`;
   }
 
+  // Nombres bonitos: ["sento","and"] → "Sento y And"
+  const names = (list) => {
+    const n = list.map(cap);
+    return n.length <= 1 ? n.join("") : n.slice(0, -1).join(", ") + " y " + n[n.length - 1];
+  };
 
   const SEASONS = {
     primavera: { icon: "🌷", label: "Lectura de primavera" },
@@ -82,10 +87,9 @@
     show(d.book);
   }
 
-  async function decide(decision) {
-    if (!current || busy) return;
-    busy = true;
-    const { book, el } = current;
+  const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+
+  function fly(el, decision) {
     const dir = { want: [1, 0], reject: [-1, 0], skip: [0, -1] }[decision];
     const stamp = el.querySelector(".stamp");
     stamp.textContent = LABEL[decision];
@@ -93,19 +97,45 @@
     el.classList.add("fly");
     el.style.transform = `translate(${dir[0] * 140}vw, ${dir[1] * 120}vh) rotate(${dir[0] * 30}deg)`;
     el.style.opacity = 0;
+  }
+
+  // 💕 "Casi" (con 3+ usuarios): la tarjeta vuelve al centro, se contonea un poco y se va
+  async function tease(el, d) {
+    el.classList.remove("drag", "fly");
+    el.style.transform = "";
+    const badge = document.createElement("div");
+    badge.className = "tease-badge";
+    badge.textContent = `💕 Casi: con ${names(d.with_users)} · falta ${names(d.missing)}`;
+    el.appendChild(badge);
+    el.classList.add("tease");
+    if (navigator.vibrate) navigator.vibrate(25);
+    await wait(1100);
+    el.classList.remove("tease");
+  }
+
+  async function decide(decision) {
+    if (!current || busy) return;
+    busy = true;
+    const { book, el } = current;
     try {
-      const d = await post("/api/vote", { book_id: book.id, decision });
+      const req = post("/api/vote", { book_id: book.id, decision });
+      if (decision !== "want") fly(el, decision);
+      const d = await req;
+      if (decision === "want") {
+        if (d.match === "partial") await tease(el, d);
+        fly(el, decision);
+      }
       history.push({ book, prev: book.me.decision });
-      if (d.match) showMatch(book);
+      if (d.match === "full") showMatch(book, d);
       undoBtn.disabled = false;
       await new Promise((res) => setTimeout(res, 220));
       await loadNext(decision === "skip" ? book.id : "");
     } finally { busy = false; }
   }
 
-  // 🤜💥🤛 Efecto de match: los dos queréis leerlo → "Nos lo quedamos"
-  function showMatch(book) {
-    const other = cap(book.other && book.other.user);
+  // 🤜💥🤛 Efecto de match: lo queréis leer todos → "Nos lo quedamos"
+  function showMatch(book, d) {
+    const who = names(["tú", ...((d && d.with_users) || [])]);
     const ov = document.createElement("div");
     ov.className = "match-overlay";
     const bits = ["🤜", "🤛", "☕", "📚", "💥", "✨", "📖", "🍂"];
@@ -118,7 +148,7 @@
         <div class="bump" aria-hidden="true"><span class="fist l">🤜</span><span class="boom">💥</span><span class="fist r">🤛</span></div>
         <h3>¡Nos lo quedamos!</h3>
         <p><strong>${esc(book.title)}</strong></p>
-        <p class="muted">Tú y ${esc(other)} queréis leerlo</p>
+        <p class="muted">${esc(who)} queréis leerlo</p>
         <button class="btn primary">Seguir deslizando</button>
       </div>`;
     document.body.appendChild(ov);

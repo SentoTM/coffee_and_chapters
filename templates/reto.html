@@ -1,11 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Reto · Stars Hollow Book Club{% endblock %}
 {% block content %}
-<section class="panel wide reto" id="reto" data-me="{{ user }}" data-other="{{ other or '' }}" data-admin="{{ '1' if can_search else '' }}">
+<section class="panel wide reto" id="reto" data-me="{{ user }}" data-others="{{ others | join(',') }}" data-admin="{{ '1' if can_search else '' }}">
   <div class="reto-head">
     <h1>📚 El reto</h1>
     {% if can_search %}<a class="btn small" href="{{ url_for('export_xlsx') }}">⬇️ Excel</a>{% endif %}
   </div>
+  {% if groups|length > 1 %}
+  <div class="tabs reto-groups" id="groups">
+    {% for g in groups %}
+    <button data-g="{{ g.key }}" data-members="{{ g.members | join(',') }}" class="{{ 'on' if loop.first }}">
+      {% if g.key == 'all' %}👥 {{ 'Los tres' if groups|length == 3 else 'Todos' }}{% else %}🤝 Con {{ g.with | capitalize }}{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+  <p class="muted small" id="groupdesc"></p>
+  {% endif %}
   <p class="turn" id="turn"></p>
 
   <h2>📖 Leyendo ahora</h2>
@@ -14,7 +24,7 @@
   <ul class="booklist" id="next"></ul>
 
   <h2>🎲 Elegir la siguiente</h2>
-  <p class="muted small">De entre los que queréis leer los dos. Elegís por turnos: quien elige añade uno y le pasa el turno al otro.</p>
+  <p class="muted small" id="pooldesc">De entre los que queréis leer los dos. Elegís por turnos: quien elige añade uno y le pasa el turno al otro.</p>
   <div class="tabs" id="seasons"></div>
   <label class="check"><input type="checkbox" id="fresh"> Solo los que no ha leído ninguno</label>
   <div class="roll">

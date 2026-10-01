@@ -78,8 +78,15 @@ def inject_permissions():
     return {"can_search": session.get("user") in SEARCH_USERS}
 
 
-def other_user(user):
-    return next((u for u in USERS if u != user), None)
+def others(user):
+    """El resto de usuarios, en el orden de APP_USERS."""
+    return [u for u in USERS if u != user]
+
+
+N_USERS = len(USERS)
+USER_PH = ",".join("?" * len(USERS))  # placeholders para "username IN (...)"
+# nº de usuarios actuales que quieren leer cada libro
+WANTS_SQL = f"(SELECT COUNT(*) FROM votes w WHERE w.book_id = b.id AND w.decision = 'want' AND w.username IN ({USER_PH}))"
 
 
 # --------------------------------------------------------------------------- #
@@ -159,8 +166,13 @@ def init_db():
     if version < 5:
         demo_vote(db)
     sync_blurbs(db)
-    if "turn" not in {r["name"] for r in db.execute("PRAGMA table_info(picks)")}:
+    cols = {r["name"] for r in db.execute("PRAGMA table_info(picks)")}
+    if "turn" not in cols:
         db.execute("ALTER TABLE picks ADD COLUMN turn INTEGER NOT NULL DEFAULT 1")
+        db.commit()
+    if "grp" not in cols:
+        # Grupo del reto: 'all' (todos) o una pareja 'and+sento'. Lo existente queda en 'all'.
+        db.execute("ALTER TABLE picks ADD COLUMN grp TEXT NOT NULL DEFAULT 'all'")
         db.commit()
     db.close()
 
@@ -365,7 +377,6 @@ def book_dict(row, votes, user):
     q = f'{row["original"] or row["title"]} {row["author"]}'.strip()
     v = votes.get(row["id"], {})
     empty = {"decision": None, "read": False}
-    other = other_user(user)
     return {
         "id": row["id"],
         "n": row["ext_id"],
@@ -378,7 +389,7 @@ def book_dict(row, votes, user):
         "extra": {k: v for k, v in extra.items() if k not in HIDDEN_FIELDS},
         "goodreads": "https://www.goodreads.com/search?q=" + quote_plus(q),
         "me": v.get(user, empty),
-        "other": {"user": other, **v.get(other, empty)} if other else None,
+        "others": [{"user": u, **v.get(u, empty)} for u in others(user)],
     }
 
 
@@ -390,10 +401,11 @@ def stats(db, user):
         s[r["decision"]] = r["c"]
     s["pending"] = total - s["want"] - s["reject"] - s["skip"]
     s["read"] = db.execute("SELECT COUNT(*) FROM votes WHERE username=? AND is_read=1", (user,)).fetchone()[0]
-    s["match"] = db.execute(
-        """SELECT COUNT(*) FROM votes v1 JOIN votes v2 ON v2.book_id = v1.book_id AND v2.username = ?
-           WHERE v1.username = ? AND v1.decision = 'want' AND v2.decision = 'want'""",
-        (other_user(user) or "", user)).fetchone()[0]
+    counts = db.execute(
+        f"""SELECT SUM(n = ?) AS full, SUM(n >= 2 AND n < ?) AS almost
+            FROM (SELECT {WANTS_SQL} AS n FROM books b)""", [N_USERS, N_USERS, *USERS]).fetchone()
+    s["match"] = (counts["full"] or 0) if N_USERS >= 2 else 0
+    s["almost"] = (counts["almost"] or 0) if N_USERS >= 3 else 0
     return s
 
 
@@ -428,7 +440,7 @@ def swipe():
 @app.route("/listas")
 @login_required
 def lists():
-    return render_template("lists.html", user=session["user"], other=other_user(session["user"]))
+    return render_template("lists.html", user=session["user"], others=others(session["user"]), many=N_USERS >= 3)
 
 
 @app.route("/importar", methods=["GET", "POST"])
@@ -521,12 +533,19 @@ def api_vote():
     db = get_db()
     user = session["user"]
     upsert_vote(db, user, data.get("book_id"), decision=decision)
-    match = False
-    if decision == "want" and other_user(user):
-        r = db.execute("SELECT decision FROM votes WHERE username=? AND book_id=?",
-                       (other_user(user), data.get("book_id"))).fetchone()
-        match = bool(r and r["decision"] == "want")
-    return jsonify(ok=True, match=match, stats=stats(db, user))
+    # match: "full" si lo queréis todos, "partial" si al menos 2 (con 3 o más usuarios)
+    match, with_users, missing = None, [], []
+    if decision == "want" and N_USERS >= 2:
+        wanting = {r["username"] for r in db.execute(
+            f"SELECT username FROM votes WHERE book_id=? AND decision='want' AND username IN ({USER_PH})",
+            [data.get("book_id"), *USERS])}
+        with_users = [u for u in others(user) if u in wanting]
+        missing = [u for u in USERS if u not in wanting]
+        if not missing:
+            match = "full"
+        elif with_users:
+            match = "partial"
+    return jsonify(ok=True, match=match, with_users=with_users, missing=missing, stats=stats(db, user))
 
 
 @app.route("/api/read", methods=["POST"])
@@ -540,8 +559,9 @@ def api_read():
 
 
 LIST_QUERIES = {
-    # clave: (join/where sobre v1 = yo, v2 = el otro)
-    "match": "v1.decision='want' AND v2.decision='want'",
+    # v1 = yo · WANTS_SQL = cuántos lo quieren leer
+    "match": f"{WANTS_SQL} = {N_USERS}",
+    "almost": f"{WANTS_SQL} >= 2 AND {WANTS_SQL} < {N_USERS}",
     "want": "v1.decision='want'",
     "skip": "v1.decision='skip'",
     "reject": "v1.decision='reject'",
@@ -557,13 +577,14 @@ def api_list(kind):
         abort(404)
     user = session["user"]
     db = get_db()
+    where = LIST_QUERIES[kind]
+    params = [user] + list(USERS) * where.count("w.username IN")
     rows = db.execute(
         f"""SELECT b.* FROM books b
             LEFT JOIN votes v1 ON v1.book_id=b.id AND v1.username=?
-            LEFT JOIN votes v2 ON v2.book_id=b.id AND v2.username=?
-            WHERE {LIST_QUERIES[kind]}
+            WHERE {where}
             ORDER BY b.level, b.title""",
-        (user, other_user(user) or ""),
+        params,
     ).fetchall()
     votes = votes_for(db, [r["id"] for r in rows])
     return jsonify(books=[book_dict(r, votes, user) for r in rows])
@@ -573,9 +594,45 @@ def api_list(kind):
 # Reto: elegir qué leer de entre los que os quedáis
 # --------------------------------------------------------------------------- #
 PICK_STATUS = ("next", "reading", "done")
-MATCH_SQL = """SELECT b.* FROM books b
-    JOIN votes v1 ON v1.book_id = b.id AND v1.username = ? AND v1.decision = 'want'
-    JOIN votes v2 ON v2.book_id = b.id AND v2.username = ? AND v2.decision = 'want'"""
+# Los que queréis leer todos (params: USERS)
+MATCH_SQL = f"SELECT b.* FROM books b WHERE {WANTS_SQL} = {N_USERS}"
+
+
+# Grupos del reto: 'all' = todos; con 3+ usuarios, además una pareja por cada otro usuario ('and+sento')
+def group_key(members):
+    members = sorted(members)
+    return "all" if len(members) == N_USERS else "+".join(members)
+
+
+def group_members(key):
+    return sorted(USERS) if key == "all" else sorted(key.split("+"))
+
+
+def groups_for(user):
+    out = [{"key": "all", "members": sorted(USERS)}]
+    if N_USERS >= 3:
+        out += [{"key": group_key([user, u]), "members": sorted([user, u]), "with": u} for u in others(user)]
+    return out
+
+
+def group_pool_sql(key):
+    """Libros que quieren leer exactamente los miembros del grupo (params: los devuelve también)."""
+    members = group_members(key)
+    if key == "all":
+        return MATCH_SQL, list(USERS)
+    ph = ",".join("?" * len(members))
+    sql = f"""SELECT b.* FROM books b
+        WHERE (SELECT COUNT(*) FROM votes w WHERE w.book_id = b.id AND w.decision = 'want'
+                 AND w.username IN ({ph})) = {len(members)}
+          AND {WANTS_SQL} = {len(members)}"""
+    return sql, [*members, *USERS]
+
+
+def check_group(user, key):
+    key = (key or "all").replace(" ", "+")  # un '+' sin codificar en la URL llega como espacio
+    if key not in {g["key"] for g in groups_for(user)}:
+        abort(403)
+    return key
 
 
 def current_season(today=None):
@@ -584,19 +641,23 @@ def current_season(today=None):
             6: "Verano", 7: "Verano", 8: "Verano"}.get(m, "Otoño")
 
 
-def whose_turn(db):
-    """Elegís por turnos: le toca a quien no eligió la última lectura."""
-    last = db.execute("SELECT picked_by FROM picks WHERE turn = 1 ORDER BY added DESC, rowid DESC LIMIT 1").fetchone()
-    users = sorted(USERS)
-    if not last:
-        return users[0] if users else None
-    return other_user(last["picked_by"]) or last["picked_by"]
+def whose_turn(db, key="all"):
+    """Elegís por turnos dentro de cada grupo, rotando en orden alfabético."""
+    last = db.execute("SELECT picked_by FROM picks WHERE turn = 1 AND grp = ? ORDER BY added DESC, rowid DESC LIMIT 1",
+                      (key,)).fetchone()
+    users = group_members(key)
+    if not users:
+        return None
+    if not last or last["picked_by"] not in users:
+        return users[0]
+    return users[(users.index(last["picked_by"]) + 1) % len(users)]
 
 
 @app.route("/reto")
 @login_required
 def reto():
-    return render_template("reto.html", user=session["user"], other=other_user(session["user"]))
+    return render_template("reto.html", user=session["user"], others=others(session["user"]),
+                           groups=groups_for(session["user"]))
 
 
 @app.route("/api/reto")
@@ -604,8 +665,12 @@ def reto():
 def api_reto():
     user = session["user"]
     db = get_db()
-    rows = db.execute(MATCH_SQL, (user, other_user(user) or "")).fetchall()
-    picks = {r["book_id"]: r for r in db.execute("SELECT * FROM picks")}
+    key = check_group(user, request.args.get("group"))
+    sql, params = group_pool_sql(key)
+    rows = db.execute(sql, params).fetchall()
+    taken = {r["book_id"] for r in db.execute("SELECT book_id FROM picks WHERE grp != ?", (key,))}
+    rows = [r for r in rows if r["id"] not in taken]  # ya elegido en otro grupo
+    picks = {r["book_id"]: r for r in db.execute("SELECT * FROM picks WHERE grp = ?", (key,))}
     in_rows = {r["id"] for r in rows}
     extra_ids = [i for i in picks if i not in in_rows]
     if extra_ids:  # lecturas apuntadas a mano que no son coincidencias
@@ -624,7 +689,8 @@ def api_reto():
     chosen.sort(key=lambda b: (PICK_STATUS.index(b["pick"]["status"]) if b["pick"]["status"] != "done" else 9,
                                b["pick"]["updated"] if b["pick"]["status"] == "done" else b["pick"]["added"]),
                 reverse=False)
-    return jsonify(pool=pool, picks=chosen, turn=whose_turn(db), season=current_season(), me=user)
+    return jsonify(pool=pool, picks=chosen, turn=whose_turn(db, key), season=current_season(), me=user,
+                   group=key, members=group_members(key))
 
 
 @app.route("/api/reto/pick", methods=["POST"])
@@ -638,21 +704,26 @@ def api_reto_pick():
     db = get_db()
     user = session["user"]
     book_id = data.get("book_id")
-    is_match = db.execute(MATCH_SQL + " WHERE b.id = ?", (user, other_user(user) or "", book_id)).fetchone()
+    key = check_group(user, data.get("group"))
+    sql, params = group_pool_sql(key)
+    is_match = db.execute(sql + " AND b.id = ?", [*params, book_id]).fetchone()
+    other_grp = db.execute("SELECT grp FROM picks WHERE book_id = ? AND grp != ?", (book_id, key)).fetchone()
+    if other_grp:
+        abort(409)  # ya está en el reto de otro grupo
     if not is_match:
         # Solo libros que queréis leer los dos… salvo para SEARCH_USERS, que pueden apuntar
         # cualquier libro (p. ej. una lectura del reto que ya hicisteis antes de la app).
         if user not in SEARCH_USERS or not db.execute("SELECT 1 FROM books WHERE id = ?", (book_id,)).fetchone():
             abort(404)
     if status is None:
-        db.execute("DELETE FROM picks WHERE book_id = ?", (book_id,))
+        db.execute("DELETE FROM picks WHERE book_id = ? AND grp = ?", (book_id, key))
     else:
         # Si se apunta directamente como leída (lectura pasada), no gasta turno
-        db.execute("INSERT OR IGNORE INTO picks (book_id, picked_by, status, turn) VALUES (?,?,?,?)",
-                   (book_id, user, status, 0 if status == "done" else 1))
+        db.execute("INSERT OR IGNORE INTO picks (book_id, picked_by, status, turn, grp) VALUES (?,?,?,?,?)",
+                   (book_id, user, status, 0 if status == "done" else 1, key))
         db.execute("UPDATE picks SET status = ?, updated = datetime('now') WHERE book_id = ?", (status, book_id))
     db.commit()
-    return jsonify(ok=True, turn=whose_turn(db))
+    return jsonify(ok=True, turn=whose_turn(db, key))
 
 
 # --------------------------------------------------------------------------- #
@@ -678,7 +749,10 @@ def export_xlsx():
 
     def who_read(v):
         readers = [u.capitalize() for u in users if v.get(u, {}).get("read")]
-        return {0: "Nadie", len(users): "Los dos"}.get(len(readers), " y ".join(readers))
+        everyone = "Los dos" if len(users) == 2 else "Todos"
+        if len(readers) in (0, len(users)):
+            return {0: "Nadie", len(users): everyone}[len(readers)]
+        return ", ".join(readers[:-1]) + " y " + readers[-1] if len(readers) > 1 else readers[0]
 
     def base(r):
         extra = json.loads(r["extra"] or "{}")
@@ -696,7 +770,7 @@ def export_xlsx():
     matches.sort(key=lambda r: (season_order.get(json.loads(r["extra"] or "{}").get("Estación", ""), 9), r["level"], r["title"]))
     for r in matches:
         p = picks.get(r["id"])
-        ws.append(base(r) + [who_read(votes.get(r["id"], {})), STATUS_ES[p["status"]] if p else ""])
+        ws.append(base(r) + [who_read(votes.get(r["id"], {})), STATUS_ES[p["status"]] if p and p["grp"] == "all" else ""])
 
     ws2 = wb.create_sheet("Todos")
     ws2.append(head + [f"{u.capitalize()} {k}" for u in users for k in ("decide", "leído")] + ["Coinciden"])
@@ -706,10 +780,32 @@ def export_xlsx():
         for u in users:
             per += [DECISION_ES[v.get(u, {}).get("decision")], "Sí" if v.get(u, {}).get("read") else ""]
         ds = {v.get(u, {}).get("decision") for u in users}
-        same = "💞 Los dos quieren" if ds == {"want"} else "🗑️ Los dos lo descartan" if ds == {"reject"} else ""
+        everyone = "Los dos" if len(users) == 2 else "Todos"
+        wanting = [u.capitalize() for u in users if v.get(u, {}).get("decision") == "want"]
+        if ds == {"want"}:
+            same = f"💞 {everyone} quieren"
+        elif ds == {"reject"}:
+            same = f"🗑️ {everyone} lo descartan"
+        elif len(wanting) >= 2:
+            same = "💕 " + ", ".join(wanting[:-1]) + " y " + wanting[-1]
+        else:
+            same = ""
         ws2.append(base(r) + per + [same])
 
-    for sheet in (ws, ws2):
+    # Hoja con todas las lecturas del reto, de todos los grupos
+    ws3 = wb.create_sheet("Reto")
+    ws3.append(head + ["Grupo", "Estado", "Elegido por"])
+    by_id = {r["id"]: r for r in rows}
+    for p in sorted(picks.values(), key=lambda p: (p["grp"] if "grp" in p.keys() else "all", p["added"])):
+        r = by_id.get(p["book_id"])
+        if not r:
+            continue
+        grp = p["grp"] if "grp" in p.keys() else "all"
+        label = ("Los dos" if len(users) == 2 else "Todos") if grp == "all" else \
+            " y ".join(m.capitalize() for m in grp.split("+"))
+        ws3.append(base(r) + [label, STATUS_ES[p["status"]], p["picked_by"].capitalize()])
+
+    for sheet in (ws, ws2, ws3):
         for c in sheet[1]:
             c.font = Font(bold=True, color="FFFFFF")
             c.fill = PatternFill("solid", fgColor="8A5A3C")

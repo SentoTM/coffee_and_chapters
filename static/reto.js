@@ -5,7 +5,13 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
   const SEASON_ICON = { Primavera: "🌷", Verano: "☀️", "Otoño": "🍂", Invierno: "❄️" };
-  const ME = root.dataset.me, OTHER = cap(root.dataset.other);
+  const ME = root.dataset.me;
+  const OTHERS = (root.dataset.others || "").split(",").filter(Boolean);
+  // Grupo activo del reto: 'all' o una pareja ('and+sento'); miembros sin contarme a mí
+  let GROUP = "all";
+  let MEMBERS = OTHERS.slice();
+  let ALL = MEMBERS.length > 1 ? "todos" : "los dos";
+  const names = (l) => { const n = l.map(cap); return n.length <= 1 ? n.join("") : n.slice(0, -1).join(", ") + " y " + n[n.length - 1]; };
   const ADMIN = !!root.dataset.admin; // SEARCH_USERS: puede marcar directamente como leído en el reto
 
   let data = { pool: [], picks: [] };
@@ -14,11 +20,15 @@
   const passed = new Set(); // los que habéis pasado con "Otro": no vuelven a salir hasta agotar el resto
 
   function readers(b) {
-    const r = [];
-    if (b.me.read) r.push("Tú");
-    if (b.other && b.other.read) r.push(OTHER);
-    if (!r.length) return `<span class="chip">🆕 Nuevo para los dos</span>`;
-    return `<span class="chip c-read">✓ ${r.length === 2 ? "Lo habéis leído los dos" : (r[0] === "Tú" ? "Lo has leído tú" : `Lo ha leído ${r[0]}`)}</span>`;
+    const others = (b.others || []).filter((o) => o.read && MEMBERS.includes(o.user)).map((o) => o.user);
+    const total = (b.me.read ? 1 : 0) + others.length;
+    if (!total) return `<span class="chip">🆕 Nuevo para ${ALL}</span>`;
+    let txt;
+    if (total === MEMBERS.length + 1) txt = `Lo habéis leído ${ALL}`;
+    else if (b.me.read && !others.length) txt = "Lo has leído tú";
+    else if (b.me.read) txt = `Lo habéis leído tú y ${names(others)}`;
+    else txt = `Lo ${others.length > 1 ? "han" : "ha"} leído ${names(others)}`;
+    return `<span class="chip c-read">✓ ${txt}</span>`;
   }
   function seasonChip(b) {
     return b.season ? `<span class="chip">${SEASON_ICON[b.season] || ""} ${esc(b.season)}</span>` : "";
@@ -36,7 +46,7 @@
   const btn = (act, label, title) => `<button class="mini" data-act="${act}" title="${title}">${label}</button>`;
 
   function poolFiltered() {
-    return data.pool.filter((b) => (!season || b.season === season) && (!$("fresh").checked || (!b.me.read && !(b.other && b.other.read))));
+    return data.pool.filter((b) => (!season || b.season === season) && (!$("fresh").checked || (!b.me.read && !(b.others || []).some((o) => o.read && MEMBERS.includes(o.user)))));
   }
 
   function render() {
@@ -87,7 +97,7 @@
   }
 
   async function load() {
-    data = await (await fetch("/api/reto")).json();
+    data = await (await fetch("/api/reto?group=" + encodeURIComponent(GROUP))).json();
     if (season === null && !load.done) {
       // Primera vez: arrancamos en la estación actual si hay candidatos de ella
       if (data.pool.some((b) => b.season === data.season)) season = data.season;
@@ -98,7 +108,8 @@
   }
 
   async function setPick(id, status) {
-    await post("/api/reto/pick", { book_id: id, status });
+    const r = await fetch("/api/reto/pick", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_id: id, status, group: GROUP }) });
+    if (r.status === 409) alert("Ese libro ya está en el reto de otro grupo.");
     await load();
   }
 
@@ -116,6 +127,26 @@
     renderCandidate();
     $("candidate").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
+
+  // Pestañas de grupo (con 3 o más usuarios)
+  function setGroup(btn) {
+    GROUP = btn.dataset.g;
+    MEMBERS = btn.dataset.members.split(",").filter((u) => u && u !== ME);
+    ALL = MEMBERS.length > 1 ? "todos" : "los dos";
+    const solo = GROUP !== "all";
+    if ($("groupdesc")) $("groupdesc").textContent = solo
+      ? `Los que queréis leer solo tú y ${names(MEMBERS)} (los demás no los han elegido). Lectura aparte, con su propio turno.`
+      : "Los que queréis leer todos: el reto común.";
+    $("pooldesc").textContent = `De entre los que queréis leer ${ALL}. Elegís por turnos: quien elige añade uno y le pasa el turno ${MEMBERS.length > 1 ? "al siguiente" : "al otro"}.`;
+    candidate = null; passed.clear(); season = null; load.done = false;
+    load();
+  }
+  const groupsEl = $("groups");
+  if (groupsEl) groupsEl.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-g]"); if (!b) return;
+    groupsEl.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    setGroup(b);
+  });
 
   $("roll").onclick = roll;
   $("fresh").onchange = () => { candidate = null; render(); };
@@ -163,5 +194,5 @@
     });
   }
 
-  load();
+  if (groupsEl) setGroup(groupsEl.querySelector("button.on")); else load();
 })();
