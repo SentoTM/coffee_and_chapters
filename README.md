@@ -1,6 +1,6 @@
 # ☕ Stars Hollow Book Club
 
-*Haz matcha con tus lectores favoritos.* (Repo: `coffee_and_chapters`.)
+*Un cafecito, riquito, riquito 🎶* (Repo: `coffee_and_chapters`.)
 
 "Tinder" de libros para elegir entre varios qué leemos en el reto.
 Flask + SQLite, desplegado en Railway.
